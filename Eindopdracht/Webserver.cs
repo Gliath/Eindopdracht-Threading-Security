@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -10,82 +11,64 @@ namespace Eindopdracht
 {
     public class Webserver
     {
-        private readonly HttpListener _listener = new HttpListener();
-        private readonly Func<HttpListenerRequest, string> _responderMethod;
-
         private Dictionary<String, String> MimeDictionary;
- 
-        public Webserver(string[] prefixes, Func<HttpListenerRequest, string> method)
+        private SettingsReader Settings;
+
+        public Webserver(SettingsReader Settings)
         {
+            this.Settings = Settings;
+
+            // Setup MimeDictionary
             MimeDictionary = new Dictionary<string, string>();
             MimeDictionary.Add(".html", "text/html");
+            MimeDictionary.Add(".htm", "text/html");
+            MimeDictionary.Add(".xml", "text/xml");
+            MimeDictionary.Add(".jpg", "image/jpeg");
+            MimeDictionary.Add(".png", "image/png");
+            MimeDictionary.Add(".bmp", "image/bmp");
+            MimeDictionary.Add(".gif", "image/gif");
+            MimeDictionary.Add(".ico", "image/x-icon");
 
-            if (!HttpListener.IsSupported)
-                throw new NotSupportedException(
-                    "Needs Windows XP SP2, Server 2003 or later.");
- 
-            // URI prefixes are required, for example 
-            // "http://localhost:8080/index/".
-            if (prefixes == null || prefixes.Length == 0)
-                throw new ArgumentException("prefixes");
- 
-            // A responder method is required
-            if (method == null)
-                throw new ArgumentException("method");
- 
-            foreach (string s in prefixes)
-                _listener.Prefixes.Add(s);
- 
-            _responderMethod = method;
-            _listener.Start();
-        }
- 
-        public Webserver(Func<HttpListenerRequest, string> method, params string[] prefixes)
-            : this(prefixes, method) { }
- 
-        public void Run()
-        {
-            ThreadPool.QueueUserWorkItem((o) =>
-            {
-                Console.WriteLine("Webserver running...");
-                try
-                {
-                    while (_listener.IsListening)
-                    {
-                        ThreadPool.QueueUserWorkItem((c) =>
-                        {
-                            var ctx = c as HttpListenerContext;
-                            try
-                            {
-                                string rstr = _responderMethod(ctx.Request);
-                                byte[] buf = Encoding.UTF8.GetBytes(rstr);
-                                ctx.Response.ContentLength64 = buf.Length;
-                                ctx.Response.OutputStream.Write(buf, 0, buf.Length);
-                            }
-                            catch { } // suppress any exceptions
-                            finally
-                            {
-                                // always close the stream
-                                ctx.Response.OutputStream.Close();
-                            }
-                        }, _listener.GetContext());
-                    }
-                }
-                catch { } // suppress any exceptions
-            });
-        }
- 
-        public void Stop()
-        {
-            _listener.Stop();
-            _listener.Close();
+
         }
 
         private String GetMime(String ext)
         {
-
+            if (MimeDictionary.ContainsKey(ext))
+                return MimeDictionary[ext];
 
             return "text/html";
+        }
+
+        private string GetTheDefaultFileName(string sLocalDirectory)
+        {
+            String sFile = "";
+            for (int i = 0; i < Settings.DefaultPages.Length; i++)
+            {
+                if (File.Exists(sLocalDirectory + Settings.DefaultPages[i]) == true)
+                {
+                    sFile = Settings.DefaultPages[i];
+                    break;
+                }
+            }
+
+            return sFile;
+        }
+
+        private String GetLocalDirectory(String requestedDirectory)
+        {
+            return Settings.Root + requestedDirectory;
+        }
+
+        private String[] GetAllFilesFromDirectory(String requestedDirectory)
+        {
+            try {
+                return Directory.GetFiles(requestedDirectory, "*", SearchOption.AllDirectories);
+            } catch (Exception e) {
+                Console.WriteLine("Error occured when retrieving files from directory.\n{0}", e.ToString());
+            }
+
+            return new String[] { };
         }
     }
 }

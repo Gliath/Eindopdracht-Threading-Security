@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace Eindopdracht
 {
@@ -12,7 +14,7 @@ namespace Eindopdracht
         public int Port { get; private set; }
         public int AdminPort { get; private set; }
         public String Root { get; private set; }
-        public String DefaultPage { get; private set; }
+        public String[] DefaultPages { get; private set; }
         public Boolean DirectoryBrowsing { get; private set; }
 
         /// <summary>
@@ -30,54 +32,69 @@ namespace Eindopdracht
 
         private void ReadSettingsFile()
         {
-            StreamReader sr;
-            String sLine = "";
-
             try
             {
-                sr = new StreamReader("data\\Settings.Dat");
+                XmlDocument doc = new XmlDocument();
+                doc.Load("file.xml");
 
-                while ((sLine = sr.ReadLine()) != null)
+                for (int i = 0; i < doc.FirstChild.ChildNodes.Count; i++)
                 {
-                    sLine.Trim();
-
-                    if (sLine.Length > 0)
+                    switch (doc.FirstChild.ChildNodes[i].Name)
                     {
-                        int iPosType = sLine.IndexOf("=");
-
-                        String sType = sLine.Substring(0, iPosType);
-                        String sValue = sLine.Substring(iPosType + 1);
-
-                        switch (sType)
-                        {
-                            case "Port":
-                                Port = int.Parse(sValue);
-                                break;
-                            case "AdminPort":
-                                AdminPort = int.Parse(sValue);
-                                break;
-                            case "Root":
-                                Root = sValue;
-                                break;
-                            case "DefaultPage":
-                                DefaultPage = sValue;
-                                break;
-                            case "DirectoryBrowsing":
-                                DirectoryBrowsing = Boolean.Parse(sValue);
-                                break;
-                            default:
-                                Console.WriteLine("Unknown Setting found: {0}", sType);
-                                break;
-                        }
+                        case "Port":
+                            Port = int.Parse(doc.FirstChild.ChildNodes[i].InnerText);
+                            break;
+                        case "AdminPort":
+                            AdminPort = int.Parse(doc.FirstChild.ChildNodes[i].InnerText);
+                            break;
+                        case "Root":
+                            Root = doc.FirstChild.ChildNodes[i].InnerText;
+                            break;
+                        case "DefaultPages":
+                            DefaultPages = doc.FirstChild.ChildNodes[i].InnerText.Split(';');
+                            break;
+                        case "DirectoryBrowsing":
+                            DirectoryBrowsing = Boolean.Parse(doc.FirstChild.ChildNodes[i].InnerText);
+                            break;
+                        default:
+                            Console.WriteLine("Unknown Setting found: {0} with value: {1}", doc.FirstChild.ChildNodes[i].Name, doc.FirstChild.ChildNodes[i].InnerText);
+                            break;
                     }
                 }
-
-                sr.Close();
             }
             catch (Exception e)
             {
                 Console.WriteLine("An Exception Occurred : " + e.ToString());
             }
+        }
+
+        private void SaveNewSettings(int Port, int AdminPort, String Root, String[] DefaultPages, Boolean DirectoryBrowsing)
+        {
+            if (Port == 0 || AdminPort == 0 || String.IsNullOrWhiteSpace(Root))
+                return;
+
+            String sDefaultPages = "";
+            for (int i = 0; i < DefaultPages.Length; i++)
+                if (!String.IsNullOrWhiteSpace(DefaultPages[i]))
+                    sDefaultPages += DefaultPages[i] + ";";
+                else
+                    return;
+
+            sDefaultPages = sDefaultPages.Substring(0, sDefaultPages.Length - 1); // Remove last ;
+
+            XElement xE = new XElement("Settings",
+                            new XElement("Port", Port),
+                            new XElement("AdminPort", AdminPort),
+                            new XElement("Root", Root),
+                            new XElement("DefaultPages", sDefaultPages),
+                            new XElement("DirectoryBrowsing", DirectoryBrowsing));
+
+            if (!Directory.Exists("data"))
+                Directory.CreateDirectory("data");
+
+            File.WriteAllText("data\\Settings.xml", xE.ToString());
+
+            Reload();
         }
     }
 }
