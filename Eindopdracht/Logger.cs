@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Eindopdracht
 {
@@ -25,14 +26,13 @@ namespace Eindopdracht
             canProcessLogs = true;
 
             elements = new String[SIZE];
-            
             n = 0;
             front = 0;
             rear = 0;
         }
 
         // There can be only one consumer (Singleton pattern).
-        public Logger getInstance() {
+        public static Logger getInstance() {
             if(instance == null) {
                 instance = new Logger();
             }
@@ -45,8 +45,7 @@ namespace Eindopdracht
         {
             while (canProcessLogs)
             {
-                String entry = get();
-                // Log it.
+                Console.WriteLine(get());
             }
         }
 
