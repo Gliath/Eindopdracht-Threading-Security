@@ -11,6 +11,7 @@ namespace Eindopdracht
     public class Program
     {
         private static SettingsReader Settings;
+        private static Thread processLogs;
         public static void Main(String[] args)
         {
             Settings = new SettingsReader();
@@ -22,6 +23,10 @@ namespace Eindopdracht
             Thread tAdmin = new Thread(m => adminserver.StartListening());
             tWeb.Start();
             tAdmin.Start();
+			
+            Logger logger = Logger.getInstance();
+            processLogs = new Thread(logger.processLogs);
+            processLogs.Start();
 
             Console.WriteLine("Christiaan & Luke's webserver. Press ^C to quit.");
         }
