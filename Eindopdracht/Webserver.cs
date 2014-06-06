@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ namespace Eindopdracht
 {
     public class Webserver
     {
+        private TcpListener listener;
+
         private Dictionary<String, String> MimeDictionary;
         private SettingsReader Settings;
 
@@ -29,7 +32,7 @@ namespace Eindopdracht
             MimeDictionary.Add(".gif", "image/gif");
             MimeDictionary.Add(".ico", "image/x-icon");
 
-
+            listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.Port);
         }
 
         private String GetMime(String ext)

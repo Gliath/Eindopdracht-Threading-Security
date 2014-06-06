@@ -32,10 +32,16 @@ namespace Eindopdracht
 
         private void ReadSettingsFile()
         {
+            if (!File.Exists("data\\Settings.xml")) // If there are no settings
+            { // Setup default settings
+                SaveNewSettings(8080, 8081, "C:\\Webserver\\Root", new String[] {"index.html", "index.htm"}, false); 
+                return;
+            }
+
             try
             {
                 XmlDocument doc = new XmlDocument();
-                doc.Load("file.xml");
+                doc.Load("data\\Settings.xml");
 
                 for (int i = 0; i < doc.FirstChild.ChildNodes.Count; i++)
                 {
@@ -80,7 +86,7 @@ namespace Eindopdracht
                 else
                     return;
 
-            sDefaultPages = sDefaultPages.Substring(0, sDefaultPages.Length - 1); // Remove last ;
+            sDefaultPages = sDefaultPages.Substring(0, sDefaultPages.Length - 1); // Remove the last ;
 
             XElement xE = new XElement("Settings",
                             new XElement("Port", Port),
