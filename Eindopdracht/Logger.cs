@@ -57,18 +57,13 @@ namespace Eindopdracht
             // This is used by multiple producers.
             lock (this)
             {
-                // Validate argument before it's put in queue.
-                if (String.IsNullOrEmpty(entry))
-                {
-                    return false;
-                }
-
                 while (canReadQueue && queue.isFull())
                 {
                     Monitor.Wait(this);
                 }
 
-                queue.add(entry);
+                if (queue.add(entry))
+                    return false;
 
                 canReadQueue = true;
                 Monitor.Pulse(this);

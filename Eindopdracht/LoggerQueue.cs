@@ -11,6 +11,7 @@ namespace Eindopdracht
         private string[] elements;
         private int size;
         private int entries;
+        private int getpos, putpos;
 
         public LoggerQueue(int size)
         {
@@ -20,21 +21,17 @@ namespace Eindopdracht
 
             this.elements = new string[size];
             this.size = size;
-            this.entries = -1;
+            
+            this.entries = 0;
+            this.getpos = 0;
+            this.putpos = 0;
         }
 
         public String pop()
         {
-            String entry = elements[0];
-            elements[0] = null;
+            String entry = elements[getpos];
+            getpos = (getpos + 1) % size;
             entries--;
-
-            if(!isEmpty() && entries > 0) {
-                for (int i = 0; i < entries; i++)
-                {
-                    elements[i] = elements[i + 1];
-                }
-            }
 
             return entry;
         }
@@ -47,7 +44,10 @@ namespace Eindopdracht
             if (isFull())
                 return false;
 
-            elements[++entries] = entry;
+            elements[putpos] = entry;
+            putpos = (putpos + 1) % size;
+            entries++;
+
             return true;
         }
 
@@ -58,12 +58,12 @@ namespace Eindopdracht
 
         public bool isEmpty()
         {
-            return entries == -1;
+            return entries == 0;
         }
 
         public bool isFull()
         {
-            return entries == (size - 1);
+            return entries == size;
         }
     }
 }

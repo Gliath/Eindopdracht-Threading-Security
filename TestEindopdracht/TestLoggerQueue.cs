@@ -46,15 +46,19 @@ namespace TestEindopdracht
         [TestMethod]
         public void pop_multiple_entries()
         {
-            LoggerQueue queue = new LoggerQueue(3);
+            LoggerQueue queue = new LoggerQueue(20);
 
-            queue.add("test1");
-            queue.add("test2");
-            queue.add("test3");
+            int add = 0;
+            while (add < 10)
+            {
+                queue.add(String.Format("Test {0}", ++add));
+            }
 
-            Assert.AreEqual(queue.pop(), "test1");
-            Assert.AreEqual(queue.pop(), "test2");
-            Assert.AreEqual(queue.pop(), "test3");
+            int pop = 0;
+            while (pop < 10)
+            {
+                Assert.AreEqual(queue.pop(), String.Format("Test {0}", ++pop));
+            }
         }
     }
 }
