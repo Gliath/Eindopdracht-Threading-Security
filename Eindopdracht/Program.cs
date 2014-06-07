@@ -11,6 +11,7 @@ namespace Eindopdracht
     public class Program
     {
         private static SettingsReader Settings;
+        private static Logger logger;
         private static Thread processLogs;
         public static void Main(String[] args)
         {
@@ -24,11 +25,22 @@ namespace Eindopdracht
             tWeb.Start();
             tAdmin.Start();
 			
-            Logger logger = Logger.getInstance();
+            logger = Logger.getInstance();
             processLogs = new Thread(logger.processLogs);
             processLogs.Start();
 
+            Thread generateLogs = new Thread(m => Program.generateLogs());
+            generateLogs.Start();
+
             Console.WriteLine("Christiaan & Luke's webserver. Press ^C to quit.");
+        }
+
+        public static void generateLogs() {
+            int count = 0;
+
+            while(true) {
+                logger.add(String.Format("Test {0}", ++count));
+            }
         }
     }
 }

@@ -10,25 +10,18 @@ namespace Eindopdracht
 {
     public class Logger
     {
+        private LoggerQueue queue;
+        private static int SIZE = 20;
+
         private static Logger instance;
         private bool canReadQueue;
         private volatile bool canProcessLogs;
 
-        private String[] elements;
-        private static int SIZE = 20;
-        private int n;
-        private int front;
-        private int rear;
-
         private Logger()
         {
+            queue = new LoggerQueue(SIZE);
             canReadQueue = false;
             canProcessLogs = true;
-
-            elements = new String[SIZE];
-            n = 0;
-            front = 0;
-            rear = 0;
         }
 
         // There can be only one consumer (Singleton pattern).
@@ -45,7 +38,7 @@ namespace Eindopdracht
         {
             while (canProcessLogs)
             {
-                Console.WriteLine(get());
+                Console.WriteLine(String.Format("Popped: {0}", pop()));
             }
         }
 
@@ -70,16 +63,12 @@ namespace Eindopdracht
                     return false;
                 }
 
-                while (canReadQueue && !isFull())
+                while (canReadQueue && queue.isFull())
                 {
                     Monitor.Wait(this);
                 }
 
-                if (rear != (size() - 1)) // wraparound
-                    rear = -1;
-
-                elements[++rear] = entry;
-                n++;
+                queue.add(entry);
 
                 canReadQueue = true;
                 Monitor.Pulse(this);
@@ -89,43 +78,23 @@ namespace Eindopdracht
         }
 
         // This method returns the front element and removes it afterwards.
-        private String get()
+        private String pop()
         {
             // This is used by one consumer.
             lock (this)
             {
-                while (!canReadQueue && !isEmpty())
+                while (!canReadQueue && queue.isEmpty())
                 {
                     Monitor.Wait(this);
                 }
 
-                String entry = elements[front++];
-
-                if (front == SIZE) // wraparound
-                    front = 0;
-
-                n--;
+                String entry = queue.pop();
 
                 canReadQueue = false;
                 Monitor.Pulse(this);
 
                 return entry;
             }
-        }
-
-        public bool isEmpty()
-        {
-            return n == 0;
-        }
-
-        public bool isFull()
-        {
-            return n == SIZE;
-        }
-
-        public int size()
-        {
-            return n;
         }
     }
 }
