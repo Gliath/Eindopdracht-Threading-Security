@@ -30,10 +30,10 @@ namespace Eindopdracht
             processLogs.Start();
 
             Thread generateLogs1 = new Thread(m => Program.generateLogs());
-            generateLogs1.Start();
+            //generateLogs1.Start();
 
             Thread generateLogs2 = new Thread(m => Program.generateLogs());
-            generateLogs2.Start();
+            //generateLogs2.Start();
 
             Console.WriteLine("Christiaan & Luke's webserver. Press ^C to quit.");
         }

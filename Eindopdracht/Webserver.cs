@@ -75,27 +75,57 @@ namespace Eindopdracht
 
                     String sStatus = "";
                     // Will be a path to a 40x page if something went wrong or default file or the requested file
-                    /*
 
-                    FileStream fStream = new FileStream(HandleURLRequest(rURL, out sStatus), FileMode.Open, FileAccess.Read, FileShare.Read);
-                    BinaryReader bReader = new BinaryReader(fStream);
-
-                    int iFileLength = 0;
-                    String sByteFile = "";
-                    byte[] bytes = new byte[fStream.Length];
-                    int read;
-                    while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0)
+                    Byte[] bByteFile = null;
+                    String path = HandleURLRequest(rURL, out sStatus);
+                    if (!String.IsNullOrWhiteSpace(path))
                     {
-                        sByteFile += Encoding.ASCII.GetString(bytes, 0, read);
-                        iFileLength += read;
+                        FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        BinaryReader bReader = new BinaryReader(fStream);
+
+                        byte[] bytes = new byte[fStream.Length];
+                        int read;
+                        while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
+
+                        bByteFile = bytes;
+
+                        bReader.Close();
+                        fStream.Close();
+                    }
+                    else // This only occurs when DirectoryBrowsing is on and the Directory exists
+                    {
+                        try
+                        {
+                            rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
+                            String sHTML = "";
+                            String templateHTML = "";
+                            String templateList = "";
+                            String templateListItem = "";
+
+                            using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
+                                templateHTML = sr.ReadToEnd();
+
+                            using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
+                                templateListItem = sr.ReadToEnd();
+
+                            foreach (String sItem in GetAllFilesFromDirectory(rURL))
+                                templateList += templateListItem.Replace("{Item}", sItem);
+
+                            sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
+                            bByteFile = Encoding.ASCII.GetBytes(sHTML);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("The template could not be read. Message:");
+                            Console.WriteLine(e.Message);
+                        }
                     }
 
-                    bReader.Close();
-                    fStream.Close();
+                    String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
 
-                    SendHeader(rHTML, sStatus, GetMime(rURL.Substring(rURL.LastIndexOf('.'))), iFileLength, ref sClient);
-                    SendData(Encoding.ASCII.GetBytes(sByteFile), ref sClient);
-                    */
+                    SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
+                    SendData(bByteFile, ref sClient);
+
                     sClient.Close();
                 }
             }
@@ -105,12 +135,56 @@ namespace Eindopdracht
         {
             sStatusCode = "200";
 
-            return "/";
+            int iPos;
+            String fileName = "";
+            String path = GetLocalPath(rURL);
+
+            // First check if there is something behind the /
+            // Secondly check what after the / stands contains a .
+            // Thirdly check if the length of the filename (that what stands behind the / ) is longer or equal than 3
+            // Lastly check if the file has a name or extention which is atleast 1 character long, by checking if the . is within the appropriate bounds.
+            // If so, it's a file (/dir/f.l or /directory/file.withextenstion)
+            if ((iPos = rURL.LastIndexOf('/') + 1) < rURL.Length && (fileName = rURL.Substring(iPos)).Contains('.') && (fileName.LastIndexOf('.') >= 1 && fileName.LastIndexOf('.') < fileName.Length - 1))
+            {
+                if (File.Exists(path))
+                    return path; // The file exists, return the path
+
+                // The file does not exist, return a 404 page
+                sStatusCode = "404";
+                return "ErrorPages\\404.html";
+            }
+            else // If not it's a directory (/dir or /dir/
+            {
+                if (Directory.Exists(path))
+                {
+                    path = path.EndsWith("/") ? path : path + '/';
+                    String file = GetTheDefaultFileName(path.EndsWith("/") ? path : path + '/'); // Makes sure that the last char is a /
+                    if (!String.IsNullOrWhiteSpace(file))
+                        return path + file; // The default file exists, return the path
+
+                    // No defaultpage exists, check if DirectoryBrowsing aanstaat
+                    if (Settings.DirectoryBrowsing)
+                        // Needs special handling. (there's no default file, needs to be dynamic)
+                        return "";
+                }
+
+                // The directory does not exist, return a 404 page
+                sStatusCode = "404";
+                return "ErrorPages\\404.html";
+            }
         }
 
-        private void SendHeader(String rHTML, String sStatus, String p, int iFileLength, ref Socket sClient)
+        private void SendHeader(String sHTML, String sStatus, String sMime, int iLength, ref Socket sClient)
         {
+            String sBuffer = "";
+            sBuffer += sHTML + " " + sStatus + "\r\n";
+            sBuffer += "Content-Type: " + sMime + "\r\n";
+            sBuffer += "Content-Length: " + iLength + "\r\n\r\n";
 
+            Byte[] bSendData = Encoding.ASCII.GetBytes(sBuffer);
+            SendData(bSendData, ref sClient);
+
+            Console.WriteLine("Header Total Bytes: " + iLength.ToString());
         }
 
         private void SendData(byte[] bData, ref Socket sClient)
@@ -145,7 +219,7 @@ namespace Eindopdracht
             String sFile = "";
             for (int i = 0; i < Settings.DefaultPages.Length; i++)
             {
-                if (File.Exists(sLocalDirectory + Settings.DefaultPages[i]) == true)
+                if (File.Exists(sLocalDirectory + Settings.DefaultPages[i]))
                 {
                     sFile = Settings.DefaultPages[i];
                     break;
@@ -155,16 +229,28 @@ namespace Eindopdracht
             return sFile;
         }
 
-        private String GetLocalDirectory(String requestedDirectory)
+        private String GetLocalPath(String requestedDirectory)
         {
-            return Settings.Root + requestedDirectory;
+            return Settings.Root + (requestedDirectory.StartsWith("/") ? requestedDirectory.Substring(1) : requestedDirectory);
         }
 
         private String[] GetAllFilesFromDirectory(String requestedDirectory)
         {
             try
             {
-                return Directory.GetFiles(requestedDirectory, "*", SearchOption.AllDirectories);
+                int iPos = 0;
+                String fileName = "";
+                String[] fAbsolute = Directory.GetFileSystemEntries(GetLocalPath(requestedDirectory), "*", SearchOption.TopDirectoryOnly);
+                String[] fRelative = new String[fAbsolute.Length];
+                for (int i = 0; i < fAbsolute.Length; i++)
+                {
+                    fRelative[i] = requestedDirectory + fAbsolute[i].Substring(fAbsolute[i].LastIndexOf('/') + 1);
+
+                    if (!fAbsolute[i].EndsWith("/") && !((iPos = fAbsolute[i].LastIndexOf('/') + 1) < fAbsolute[i].Length && (fileName = fAbsolute[i].Substring(iPos)).Contains('.') && (fileName.LastIndexOf('.') >= 1 && fileName.LastIndexOf('.') < fileName.Length - 1))) // Is it a directory or not
+                        fRelative[i] += "/";
+                }
+
+                return fRelative;
             }
             catch (Exception e)
             {

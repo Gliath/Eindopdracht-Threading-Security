@@ -54,7 +54,7 @@ namespace Eindopdracht
                             AdminPort = int.Parse(doc.FirstChild.ChildNodes[i].InnerText);
                             break;
                         case "Root":
-                            Root = doc.FirstChild.ChildNodes[i].InnerText;
+                            Root = doc.FirstChild.ChildNodes[i].InnerText.Replace('\\', '/');
                             break;
                         case "DefaultPages":
                             DefaultPages = doc.FirstChild.ChildNodes[i].InnerText.Split(';');
