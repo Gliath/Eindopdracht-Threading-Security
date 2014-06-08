@@ -14,7 +14,7 @@ namespace Eindopdracht
 {
     public class SecuredWebserver : AbstractWebserver
     {
-        public static string cerficicate_name = @"cert_req.csr";
+        public static string cerficicate_name = @"TempCert.cer";
 
         private SettingsReader Settings;
         private TcpListener listener;
