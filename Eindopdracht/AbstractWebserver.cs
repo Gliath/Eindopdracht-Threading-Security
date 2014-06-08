@@ -53,7 +53,7 @@ namespace Eindopdracht
             {
                 if (sClient.Connected)
                     if ((iBytes = sClient.Send(bData, bData.Length, 0)) == -1)
-                        Console.WriteLine("Socket Error.\Data could not be send");
+                        Console.WriteLine("Socket Error.\nData could not be send");
                     else
                         Console.WriteLine("Bytes sent: {0}", iBytes);
                 else

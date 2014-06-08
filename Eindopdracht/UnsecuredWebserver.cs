@@ -36,7 +36,7 @@ namespace Eindopdracht
                 Byte[] bReceived = new Byte[1024];
                 int i = sClient.Receive(bReceived, bReceived.Length, 0);
                 String sRequest = Encoding.ASCII.GetString(bReceived);
-                //Console.WriteLine(sRequest);
+                Console.WriteLine(sRequest);
 
                 int iFirstPos = sRequest.IndexOf(' ');
                 int iLastPos = sRequest.IndexOf(' ', iFirstPos + 1);
