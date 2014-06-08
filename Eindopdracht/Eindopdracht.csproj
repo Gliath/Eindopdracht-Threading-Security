@@ -45,8 +45,10 @@
     <Compile Include="LoggerQueue.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SecuredWebserver.cs" />
     <Compile Include="SettingsReader.cs" />
-    <Compile Include="Webserver.cs" />
+    <Compile Include="UnsecuredWebserver.cs" />
+    <Compile Include="AbstractWebserver.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

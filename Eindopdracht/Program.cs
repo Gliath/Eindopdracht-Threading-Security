@@ -17,8 +17,8 @@ namespace Eindopdracht
         {
             Settings = new SettingsReader();
 
-            Webserver webserver = new Webserver(Settings, false);
-            Webserver adminserver = new Webserver(Settings, true);
+            AbstractWebserver webserver = new UnsecuredWebserver(Settings);
+            AbstractWebserver adminserver = new SecuredWebserver(Settings);
 
             Thread tWeb = new Thread(m => webserver.StartListening());
             Thread tAdmin = new Thread(m => adminserver.StartListening());
