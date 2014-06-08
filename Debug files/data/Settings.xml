@@ -1,0 +1,7 @@
+<Settings>
+	<Port>8080</Port>
+	<AdminPort>8081</AdminPort>
+	<Root>C:\Webserver\Root\</Root>
+	<DefaultPages>index.html;index.htm</DefaultPages>
+	<DirectoryBrowsing>true</DirectoryBrowsing>
+</Settings>
