@@ -1,0 +1,45 @@
+<html>
+<head>
+	<title>Controlpanel - Settings</title>
+</head>
+<body>
+	<h1>Controlpanel</h1>
+	<form name="settings" method="post">
+		<fieldset>
+			<legend>Settings</legend>
+			<p>{Message}</p>
+			<ul>
+				<li>
+					<label for="port">Port:</label>
+					<input type="text" name="port" id="port" size="30" value="{oldPort}"/>
+				</li>
+				<li>
+					<label for="admin_port">Admin port:</label>
+					<input type="text" name="admin_port" id="admin_port" size="30" value="{oldAdminPort}"/>
+				</li>
+				<li>
+					<label for="root">Root:</label>
+					<input type="text" name="root" id="root" size="30" value="{oldRoot}"/>
+				</li>
+				<li>
+					<label for="default_pages">Default pages: (enter ; after each page)</label>
+					<input type="text" name="default_pages" id="default_pages" size="30" value="{oldDefaultPages}"/>
+				</li>
+				<li>
+					<label for="directory_browsing">Directory browsing:</label>
+					<input type="checkbox" name="directory_browsing" id="directory_browsing" {oldDirectoryBrowsing}/>
+				</li>
+				<li>
+					<button type="submit">Save settings</button>
+				</li>
+				<li>
+					<a href="log">Show log</a>
+				</li>
+				<li>
+					<a href="users">Manage users</a>
+				</li>
+			</ul>
+		</fieldset>
+	</form>
+</body>
+</html>

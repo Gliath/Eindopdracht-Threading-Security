@@ -1,0 +1,25 @@
+<html>
+<head>
+	<title>Controlpanel - User management</title>
+</head>
+<body>
+	<form name="edit" method="post">
+		<fieldset>
+			<legend>Edit user {user}</legend>
+			<ul>
+				<li>
+					<label for="username">Username:</label>
+					<input type="text" name="username" id="username" size="30" value="{oldUsername}"/>
+				</li>
+				<li>
+					<label for="is_admin">Is an admin:</label>
+					<input type="checkbox" name="is_admin" id="is_admin" {oldIsAdmin}/>
+				</li>
+				<li>
+					<button type="submit">Edit user</button>
+				</li>
+			</ul>
+		</fieldset>
+	</form>
+</body>
+</html>
