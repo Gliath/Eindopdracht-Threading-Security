@@ -35,51 +35,142 @@ namespace Eindopdracht
 
             while (true)
             {
-                Socket sClient = listener.AcceptSocket();
-                Console.WriteLine("Socket Type: " + sClient.SocketType);
-                if (sClient.Connected)
-                    Console.WriteLine("Client Connected\nClient IP: {0}", sClient.RemoteEndPoint);
+                TcpClient client = listener.AcceptTcpClient();
+                SslStream stream = new SslStream(client.GetStream(), false);
 
-                Stream stream = new NetworkStream(sClient, true);
-                SslStream sslStream = new SslStream(stream, false);
+                stream.ReadTimeout = 5000;
+                //stream.WriteTimeout = 5000;
+
+                Console.WriteLine("Socket Type: " + client.Client.SocketType);
+                if (client.Connected)
+                    Console.WriteLine("Client Connected\nClient IP: {0}", client.Client.RemoteEndPoint);
 
                 try
                 {
-                    sslStream.AuthenticateAsServer(certificate, false, SslProtocols.Tls, true);
-
-                    byte[] buffer = new byte[2048];
-                    StringBuilder message = new StringBuilder();
-                    
-                    int bit = -1;
-                    do
-                    {
-                        bit = sslStream.Read(buffer, 0, buffer.Length);
-
-                        Decoder decoder = Encoding.UTF8.GetDecoder();
-                        char[] chars = new char[decoder.GetCharCount(buffer, 0, bit)];
-                        decoder.GetChars(buffer, 0, bit, chars, 0);
-                        message.Append(chars);
-
-                        if (message.ToString().IndexOf("<EOF>") != -1)
-                        {
-                            break;
-                        }
-                    } while (bit != 0);
-
+                    stream.AuthenticateAsServer(certificate, false, SslProtocols.Tls, true);
+                    String message = readMessage(stream);
                     Console.WriteLine(message);
+
+                    int iFirstPos = message.IndexOf(' ');
+                    int iLastPos = message.IndexOf(' ', iFirstPos + 1);
+
+                    if (iFirstPos > 0 && iLastPos > 0)
+                    {
+                        String rType = message.Substring(0, iFirstPos);
+                        String rURL = message.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
+                        String rHTML = message.Substring(iLastPos + 1, 8);
+
+                        if (!rType.Equals("GET") && !rType.Equals("POST"))
+                        {
+                            Console.WriteLine("Unsupported request type encountered: {0}", rType);
+                            // Send Error 400
+                            client.Close();
+                            continue;
+                        }
+
+                        Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
+
+                        String sStatus = "";
+                        // Will be a path to a 40x page if something went wrong or default file or the requested file
+
+                        Byte[] bByteFile = null;
+                        String path = HandleURLRequest(rURL, out sStatus);
+                       
+                        if (!String.IsNullOrWhiteSpace(path))
+                        {
+                            FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            BinaryReader bReader = new BinaryReader(fStream);
+
+                            byte[] bytes = new byte[fStream.Length];
+                            int read;
+                            while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
+
+                            bByteFile = bytes;
+
+                            bReader.Close();
+                            fStream.Close();
+                        }
+                        else // This only occurs when DirectoryBrowsing is on and the Directory exists
+                        {
+                            try
+                            {
+                                rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
+                                String sHTML = "";
+                                String templateHTML = "";
+                                String templateList = "";
+                                String templateListItem = "";
+
+                                using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
+                                    templateHTML = sr.ReadToEnd();
+
+                                using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
+                                    templateListItem = sr.ReadToEnd();
+
+                                foreach (String sItem in GetAllFilesFromDirectory(rURL))
+                                    templateList += templateListItem.Replace("{Item}", sItem);
+
+                                sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
+                                bByteFile = Encoding.ASCII.GetBytes(sHTML);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("The template could not be read. Message:");
+                                Console.WriteLine(e.Message);
+                            }
+                        }
+
+                        String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
+
+                        Socket socket = client.Client;
+                        SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref socket);
+                        SendData(bByteFile, ref socket);
+                    }
                 }
-                
+
                 catch (AuthenticationException e)
                 {
                     Console.WriteLine(e.Message);
+                    stream.Close();
+                    client.Close();
+                    return;
                 }
+
+                /*catch (IOException e)
+                {
+                    Console.WriteLine(e.Message);
+                    stream.Close();
+                    client.Close();
+                    return;
+                }*/
                 
                 finally
                 {
-                    sslStream.Close();
-                    sClient.Close();
+                    stream.Close();
+                    client.Close();
                 }
             }
+        }
+
+        private String readMessage(SslStream stream)
+        {
+            byte[] buffer = new byte[2048];
+            StringBuilder messageData = new StringBuilder();
+            int bytes = -1;
+            do
+            {
+                bytes = stream.Read(buffer, 0, buffer.Length);
+
+                Decoder decoder = Encoding.UTF8.GetDecoder();
+                char[] chars = new char[decoder.GetCharCount(buffer, 0, bytes)];
+                decoder.GetChars(buffer, 0, bytes, chars, 0);
+                messageData.Append(chars);
+
+                if (messageData.ToString().Contains("\r\n")) {
+                    break;
+                }
+            } while (bytes != 0);
+
+            return messageData.ToString();
         }
 
         private String HandleURLRequest(String rURL, out String sStatusCode)
