@@ -38,7 +38,7 @@ namespace Eindopdracht
                 TcpClient client = listener.AcceptTcpClient();
                 SslStream stream = new SslStream(client.GetStream(), false);
 
-                stream.ReadTimeout = 5000;
+                //stream.ReadTimeout = 5000;
                 //stream.WriteTimeout = 5000;
 
                 Console.WriteLine("Socket Type: " + client.Client.SocketType);
@@ -135,13 +135,13 @@ namespace Eindopdracht
                     return;
                 }
 
-                /*catch (IOException e)
+                catch (IOException e)
                 {
                     Console.WriteLine(e.Message);
                     stream.Close();
                     client.Close();
                     return;
-                }*/
+                }
                 
                 finally
                 {

@@ -24,7 +24,12 @@ namespace Eindopdracht
             Thread tAdmin = new Thread(m => adminserver.StartListening());
             tWeb.Start();
             tAdmin.Start();
-			
+
+            Database db = new Database();
+            User user = db.Login("chris", "password");
+            Storage storage = new Storage();
+            storage.addSession("127.0.0.1", user);
+
             logger = Logger.getInstance();
             processLogs = new Thread(logger.processLogs);
             processLogs.Start();
