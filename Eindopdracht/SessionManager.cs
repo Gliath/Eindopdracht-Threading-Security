@@ -37,7 +37,7 @@ namespace Eindopdracht
             this.blockedIPs = new Dictionary<string, DateTime>();
         }
 
-        public Warning Login(string username, string password, string ip) {
+        public int Login(string username, string password, string ip, out Warning warning) {
             User user = null;
 
             // Encrypt password with MD5 hashing
@@ -58,7 +58,8 @@ namespace Eindopdracht
             {
                 if (blockedIPs[ip].CompareTo(new DateTime()) < 0)
                 {
-                    return Warning.BLOCKED_IP;
+                    warning = Warning.BLOCKED_IP;
+                    return -1;
                 }
                 else
                 {
@@ -72,7 +73,15 @@ namespace Eindopdracht
                 user = new User(int.Parse(dr[0].ToString()), dr[1].ToString(), dr[2].ToString(), dr[3].ToString());
                 connector.CloseConnection();
 
-                return addSession(ip, user);
+                int hashcode = addSession(ip, user, out warning);
+
+                if (warning == Warning.NONE)
+                {
+                    // returns hascode associated with session
+                    return hashcode;
+                }
+
+                return -1;
             }
             else
             {
@@ -85,7 +94,8 @@ namespace Eindopdracht
             }
 
             connector.CloseConnection();
-            return Warning.WRONG_COMBINATION;
+            warning = Warning.WRONG_COMBINATION;
+            return -1;
         }
 
         public Session getSession(int hashcode)
@@ -108,12 +118,13 @@ namespace Eindopdracht
             return null;
         }
 
-        private Warning addSession(String IP, User user) 
+        private int addSession(String IP, User user, out Warning warning) 
         {
             // If the user was already logged in, then don't let another IP log in.
             if (loggedInUsers.Contains(user.ID))
             {
-                return Warning.USER_ALREADY_LOGGED_IN;
+                warning = Warning.USER_ALREADY_LOGGED_IN;
+                return -1;
             }
             else
             {
@@ -124,7 +135,8 @@ namespace Eindopdracht
             int hashcode = session.GetHashCode();
             sessions.Add(hashcode, session);
 
-            return Warning.NONE;
+            warning = Warning.NONE;
+            return hashcode;
         }
 
         private Warning checkSession(int hashcode)

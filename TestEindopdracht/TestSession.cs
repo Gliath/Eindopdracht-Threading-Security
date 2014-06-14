@@ -12,7 +12,11 @@ namespace TestEindopdracht
         {
             Connector connection = Connector.getInstance();
             SessionManager sm = new SessionManager(connection);
-            Assert.AreEqual(Eindopdracht.SessionManager.Warning.NONE, sm.Login("chris", "password", "127.0.0.1"));
+            
+            Eindopdracht.SessionManager.Warning warning;
+            int hashcode = sm.Login("chris", "password", "127.0.0.1", out warning);
+
+            Assert.AreEqual(warning, Eindopdracht.SessionManager.Warning.NONE);
         }
     }
 }
