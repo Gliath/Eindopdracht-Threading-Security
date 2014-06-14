@@ -46,7 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Database.cs" />
+    <Compile Include="Connector.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="LoggerQueue.cs" />
     <Compile Include="Program.cs" />
@@ -55,8 +55,7 @@
     <Compile Include="SettingsReader.cs" />
     <Compile Include="UnsecuredWebserver.cs" />
     <Compile Include="AbstractWebserver.cs" />
-    <Compile Include="Storage.cs" />
-    <Compile Include="User.cs" />
+    <Compile Include="SessionManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

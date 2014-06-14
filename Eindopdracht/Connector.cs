@@ -7,21 +7,32 @@ using System.Threading.Tasks;
 
 namespace Eindopdracht
 {
-    public class Database
+    public class Connector
     {
+        private static Connector instance = null;
         private MySqlConnection connection;
         private static string SERVER = "localhost";
         private static string DATABASE = "threading";
         private static string USERNAME = "root";
         private static string PASSWORD = ""; // TODO: change to something more difficult!
 
-        public Database()
+        private Connector()
         {
             string connectionString = "SERVER=" + SERVER + ";" + "DATABASE=" + DATABASE + ";" + "USERNAME=" + USERNAME + ";" + "PASSWORD=" + PASSWORD + ";";
             connection = new MySqlConnection(connectionString);
         }
 
-        public User Login(String username, String password) {
+        public static Connector getInstance()
+        {
+            if (instance == null)
+            {
+                instance = new Connector();
+            }
+
+            return instance;
+        }
+
+        public MySqlDataReader query(string query) {
             // TODO: Add MD5 and stored procedure
 
             /*MySqlCommand cmd = new MySqlCommand();
@@ -37,19 +48,23 @@ namespace Eindopdracht
 
             try
             {
-                string query = "SELECT * from users where username = '" + username + "' and password = '" + password + "'";
+                //string query = "SELECT * from users where username = '" + username + "' and password = '" + password + "'";
 
                 if (this.OpenConnection() == true)
                 {
                     MySqlCommand cmd = new MySqlCommand(query, connection);
                     MySqlDataReader dr = cmd.ExecuteReader();
 
-                    if (dr.Read())
+                    /*if (dr.Read())
                     {
                         User user = new User(int.Parse(dr[0].ToString()), dr[1].ToString(), dr[2].ToString(), dr[3].ToString());
                         this.CloseConnection();
                         return user;
-                    }
+                    }*/
+                    
+                    //this.CloseConnection();
+
+                    return dr;
                 }
             }
             catch (MySqlException ex)
@@ -74,7 +89,7 @@ namespace Eindopdracht
             }
         }
 
-        private bool CloseConnection()
+        public bool CloseConnection()
         {
             try
             {
