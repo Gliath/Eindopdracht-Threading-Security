@@ -14,7 +14,7 @@ namespace Eindopdracht
 {
     public class SecuredWebserver : AbstractWebserver
     {
-        public static string cerficicate_name = @"TempCert.cer";
+        public static string cerficicate_name = @"TempCert.pfx";
 
         private SettingsReader Settings;
         private TcpListener listener;
@@ -25,7 +25,8 @@ namespace Eindopdracht
         {
             this.Settings = Settings;
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.AdminPort);
-            certificate = X509Certificate.CreateFromCertFile(cerficicate_name);
+            certificate = new X509Certificate2(cerficicate_name, "ChrisLuke");
+            // X509Certificate.CreateFromCertFile(cerficicate_name);
         }
 
         public override void StartListening()
