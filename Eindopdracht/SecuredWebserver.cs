@@ -75,6 +75,8 @@ namespace Eindopdracht
                     String message = Encoding.ASCII.GetString(byteMessage);
                     Console.WriteLine(message);
 
+                    String notification = "";
+
                     int iFirstPos = message.IndexOf(' ');
                     int iLastPos = message.IndexOf(' ', iFirstPos + 1);
 
@@ -110,36 +112,30 @@ namespace Eindopdracht
                                 case "/":
                                     path = "index.html";
                                     break;
-                                case "/index2":
-                                    path = "index2.html";
-                                    break;
-                                case "/index3":
-                                    path = "index3.html";
-                                    break;
                                 case "/log":
                                     path = "log";
                                     break;
                                 case "/users":
+                                    path = "usermanage_list.html";
                                     break;
                                 case "/create":
+                                    path = "usermanage_create.html";
                                     break;
                                 case "/edit":
+                                    path = "usermanage_edit.html";
                                     break;
                                 case "/delete":
-                                    break;
-                                case "/deleteUser":
+                                    path = "usermanage_delete.html";
                                     break;
                                 default:
+                                    status = "404";
                                     break;
                             }
 
                             if (String.IsNullOrWhiteSpace(path))
                                 status = "404";
-                            else
+                            else if (!path.Equals("log"))
                                 path = "SecuredPages\\" + path;
-
-
-
 
                             try
                             {
@@ -149,8 +145,7 @@ namespace Eindopdracht
                                     htmlPage = sr.ReadToEnd();
 
                                 // Replace with something better
-                                if(url.Equals("/"))
-                                    htmlPage = htmlPage.Replace("{Message}", "");
+                                htmlPage = htmlPage.Replace("{Message}", notification);
 
                                 byteFile = Encoding.ASCII.GetBytes(htmlPage);
                             }

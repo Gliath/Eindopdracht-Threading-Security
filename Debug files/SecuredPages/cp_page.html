@@ -2,13 +2,13 @@
 <head>
 	<title>Controlpanel - Settings</title>
 </head>
-<body>
+<body style="text-align:center; width:500px; margin:auto;">
 	<h1>Controlpanel</h1>
 	<form name="settings" method="post">
 		<fieldset>
 			<legend>Settings</legend>
-			<p>{Message}</p>
-			<ul>
+			<p style="color:red;">{Message}</p>
+			<ul style="list-style-type: none;">
 				<li>
 					<label for="port">Port:</label>
 					<input type="text" name="port" id="port" size="30" value="{oldPort}"/>
@@ -22,7 +22,7 @@
 					<input type="text" name="root" id="root" size="30" value="{oldRoot}"/>
 				</li>
 				<li>
-					<label for="default_pages">Default pages: (enter ; after each page)</label>
+					<label for="default_pages">Default pages: (enter ; after each page)</label><br />
 					<input type="text" name="default_pages" id="default_pages" size="30" value="{oldDefaultPages}"/>
 				</li>
 				<li>

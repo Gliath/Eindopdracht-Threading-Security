@@ -2,11 +2,12 @@
 <head>
 	<title>Controlpanel - User management</title>
 </head>
-<body>
+<body style="text-align:center; width:500px; margin:auto;">
 	<form name="edit" method="post">
 		<fieldset>
 			<legend>Edit user {user}</legend>
-			<ul>
+			<p style="color:red;">{Message}</p>
+			<ul style="list-style-type: none;">
 				<li>
 					<label for="username">Username:</label>
 					<input type="text" name="username" id="username" size="30" value="{oldUsername}"/>

@@ -2,13 +2,13 @@
 <head>
 	<title>Controlpanel - Login</title>
 </head>
-<body style="text-align:center">
+<body style="text-align:center; width:500px; margin:auto;">
 	<h1>Controlpanel</h1>
 	<form name="login" method="post">
 		<fieldset>
 			<legend>Login</legend>
-			<p>{LoginError}</p>
-			<ul>
+			<p style="color:red;">{Message}</p>
+			<ul style="list-style-type: none;">
 				<li>
 					<label for="username">Username:</label>
 					<input type="text" name="username" id="username" size="30"/>

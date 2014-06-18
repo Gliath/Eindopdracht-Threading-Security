@@ -2,11 +2,12 @@
 <head>
 	<title>Controlpanel - User management</title>
 </head>
-<body>
-	<form name="add" action="users.html" method="post">
+<body style="text-align:center; width:500px; margin:auto;">
+	<form name="add" method="post">
 		<fieldset>
 			<legend>Add user</legend>
-			<ul>
+			<p style="color:red;">{Message}</p>
+			<ul style="list-style-type: none;">
 				<li>
 					<label for="username">Username:</label>
 					<input type="text" name="username" id="username" size="30"/>

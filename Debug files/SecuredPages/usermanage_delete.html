@@ -2,12 +2,15 @@
 <head>
 	<title>Controlpanel - User management</title>
 </head>
-<body>
-	<p>{Message}</p>
-	<fieldset>
-		<legend>Are you sure, you want to delete {user}</legend>
-		<a href="deleteUser">Remove user</a><br />
-		<a href="users">Don't delete user</a>
-	</fieldset>
+<body style="text-align:center; width:500px; margin:auto;">
+	<form name="delete" method="post">
+		<fieldset>
+			<legend>Are you sure, you want to delete {user}</legend>
+			<p style="color:red;">{Message}</p>
+			<button type="submit" id="delete" name="delete">Delete user</button><br />
+			</ul>
+			<a href="users">Don't delete user</a>
+		</fieldset>
+	</form>
 </body>
 </html>
