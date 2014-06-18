@@ -54,24 +54,25 @@ namespace Eindopdracht
 
                     if (iFirstPos > 0 && iLastPos > 0)
                     {
+                        IPEndPoint IP = sClient.RemoteEndPoint as IPEndPoint;
                         String rType = sRequest.Substring(0, iFirstPos);
                         String rURL = sRequest.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
                         String rHTML = sRequest.Substring(iLastPos + 1, 8);
-
-                        if (!rType.Equals("GET") && !rType.Equals("POST"))
-                        {
-                            Console.WriteLine("Unsupported request type encountered: {0}", rType);
-                            // Send Error 400
-                            sClient.Close();
-                            return;
+                        
+                        switch(rType) {
+                            case "GET":
+                                HandleGetWithURL(sRequest, rURL, IP.Address.ToString());
+                                break;
+                            case "POST":
+                                HandlePostWithURL(sRequest, rURL, IP.Address.ToString());
+                                break;
+                            default:
+                                Console.WriteLine("Unsupported request type encountered: {0}", rType);
+                                sClient.Close(); // Send Error 400
+                                break;
                         }
 
                         Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
-
-
-                        IPEndPoint ep = sClient.RemoteEndPoint as IPEndPoint;
-                        HandlePostWithURL(sRequest, rURL, ep.Address.ToString());
-
 
                         /*String sStatus = "";
                         // Will be a path to a 40x page if something went wrong or default file or the requested file
@@ -232,10 +233,10 @@ namespace Eindopdracht
                     switch (user.Type)
                     {
                         case User.USER_TYPE.ADMIN:
-                            // goto admin part
+                            Console.WriteLine("Admin part of logs");
                             break;
                         case User.USER_TYPE.SUPPORTER:
-                            // goto supporter part
+                            Console.WriteLine("Supporter part of logs");
                             break;
                     }
 
@@ -250,10 +251,10 @@ namespace Eindopdracht
                     switch (user.Type)
                     {
                         case User.USER_TYPE.ADMIN:
-                            // goto admin part
+                            Console.WriteLine("Admin part of settings");
                             break;
                         case User.USER_TYPE.SUPPORTER:
-                            // goto supporter part
+                            Console.WriteLine("Supporter part of settings");
                             break;
                     }
 
