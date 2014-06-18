@@ -156,9 +156,14 @@ namespace Eindopdracht
             }
         }
 
-        private int getSessionOfActiveIP(String IP)
+        private int getHashcodeOfActiveIP(String IP)
         {
             return activeIPs[IP];
+        }
+
+        private Session getSessionOfActiveIP(String IP)
+        {
+            return sessionManager.getSession(getHashcodeOfActiveIP(IP));
         }
 
         private String HandleURLRequest(String rURL, out String sStatusCode)
@@ -211,6 +216,12 @@ namespace Eindopdracht
             switch (url)
             {
                 case "/login":
+                    if (activeIPs.ContainsKey(IP))
+                    {
+                        Console.Write("user is already logged in");
+                        break;
+                    }
+
                     SessionManager.Warning warning;
                     int hashcode = HandleLoginAttempt(post["body"], IP, out warning);
 
@@ -229,19 +240,20 @@ namespace Eindopdracht
                             Console.WriteLine("IP is blocked");
                             break;
                         case SessionManager.Warning.NONE:
-                            if (hashcode != -1)
-                            {
-                                activeIPs.Add(IP, hashcode);
-                            }
-
+                            activeIPs.Add(IP, hashcode);
                             Console.WriteLine("user has logged in");
-
                             break;
                     }
 
                     break;
 
                 case "/logout":
+                    if (activeIPs.ContainsKey(IP))
+                    {      
+                        sessionManager.removeSession(getHashcodeOfActiveIP(IP));
+                        activeIPs.Remove(IP);
+                        Console.WriteLine("user has logged out");
+                    }
 
                     break;
             }
@@ -262,7 +274,6 @@ namespace Eindopdracht
 
         private int HandleLoginAttempt(String jsonPackage, String IP, out SessionManager.Warning warning)
         {
-            Console.WriteLine(" DASFKDASF " + IP);
             JObject package = JObject.Parse(jsonPackage);
             string username = (String)package["username"];
             string password = (String)package["password"];

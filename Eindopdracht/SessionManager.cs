@@ -47,7 +47,7 @@ namespace Eindopdracht
             MySqlDataReader dr = connector.query(query);
 
             // If the user has x number of login attemps, then block his IP for x number of hours.
-            if (loginAttemps.ContainsKey(ip) && loginAttemps[ip] == NUMBER_OF_LOGIN_ATTEMPTS)
+            if (loginAttemps.ContainsKey(ip) && (loginAttemps[ip] == NUMBER_OF_LOGIN_ATTEMPTS))
             {
                 blockedIPs.Add(ip, new DateTime().AddHours(NUMBER_OF_HOURS_BLOCKED));
                 loginAttemps.Remove(ip);
@@ -56,9 +56,10 @@ namespace Eindopdracht
             // If the IP is blocked and the x number of hours hasn't passed, then return warning BLOCKED_IP.
             if (blockedIPs.ContainsKey(ip))
             {
-                if (blockedIPs[ip].CompareTo(new DateTime()) < 0)
+                if (blockedIPs[ip].CompareTo(new DateTime()) > 0)
                 {
                     warning = Warning.BLOCKED_IP;
+                    connector.CloseConnection();
                     return -1;
                 }
                 else
@@ -87,10 +88,9 @@ namespace Eindopdracht
             {
                 if(loginAttemps.ContainsKey(ip)) {
                     int value = loginAttemps[ip];
-                    loginAttemps[ip] = value++;
+                    loginAttemps[ip] = value + 1;
                 } else {
                     loginAttemps.Add(ip, 1);
-
                 }
             }
 
@@ -147,7 +147,7 @@ namespace Eindopdracht
             {
                 Session session = sessions[hashcode];
 
-                if (session.Expires.CompareTo(new DateTime()) < 0)
+                if (session.Expires.CompareTo(new DateTime()) > 0)
                 {
                     return Warning.NONE;
                 }
@@ -161,7 +161,7 @@ namespace Eindopdracht
             return Warning.SESSION_DOES_NOT_EXIST;
         }
 
-        private void removeSession(int hashcode)
+        public void removeSession(int hashcode)
         {
             Session session = sessions[hashcode];
             loggedInUsers.Remove(session.ID);
