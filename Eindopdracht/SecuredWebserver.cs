@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Eindopdracht
@@ -62,174 +63,178 @@ namespace Eindopdracht
                     Console.WriteLine("Client Connected\nClient IP: {0}", client.Client.RemoteEndPoint);
                 */
 
-                try
+                new Thread(m =>
                 {
-                    /* SSL Afhandeling
-                    stream.AuthenticateAsServer(certificate, false, SslProtocols.Tls, true);
-                    String message = readMessage(stream);
-                    Console.WriteLine(message);
-                    */
-
-                    Byte[] byteMessage = new Byte[1024];
-                    int i = sClient.Receive(byteMessage, byteMessage.Length, 0);
-                    String message = Encoding.ASCII.GetString(byteMessage);
-                    Console.WriteLine(message);
-
-                    String notification = "";
-
-                    int iFirstPos = message.IndexOf(' ');
-                    int iLastPos = message.IndexOf(' ', iFirstPos + 1);
-
-                    if (iFirstPos > 0 && iLastPos > 0)
+                    try
                     {
-                        String type = message.Substring(0, iFirstPos);
-                        String url = message.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
-                        String html = message.Substring(iLastPos + 1, 8);
+                        /* SSL Afhandeling
+                        stream.AuthenticateAsServer(certificate, false, SslProtocols.Tls, true);
+                        String message = readMessage(stream);
+                        Console.WriteLine(message);
+                        */
 
-                        String referer;
-                        int iPosReferer = message.IndexOf("Referer: ");
-                        if (iPosReferer > 0)
-                            referer = message.Substring(iPosReferer, message.IndexOf("\r\n", iPosReferer) - iPosReferer).Substring(9);
+                        Byte[] byteMessage = new Byte[1024];
+                        int i = sClient.Receive(byteMessage, byteMessage.Length, 0);
+                        String message = Encoding.ASCII.GetString(byteMessage);
+                        Console.WriteLine(message);
 
-                        if (!type.Equals("GET") && !type.Equals("POST"))
+                        String notification = "";
+
+                        int iFirstPos = message.IndexOf(' ');
+                        int iLastPos = message.IndexOf(' ', iFirstPos + 1);
+
+                        if (iFirstPos > 0 && iLastPos > 0)
                         {
-                            Console.WriteLine("Unsupported request type encountered: {0}", type);
-                            // Send Error 400
-                            //client.Close(); Nodig voor SSL
-                            continue;
-                        }
+                            String type = message.Substring(0, iFirstPos);
+                            String url = message.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
+                            String html = message.Substring(iLastPos + 1, 8);
 
-                        Console.WriteLine("Request type: {0}\nRequest URL:  {1}\nRequest HTML: {2}", type, url, html);
+                            String referer;
+                            int iPosReferer = message.IndexOf("Referer: ");
+                            if (iPosReferer > 0)
+                                referer = message.Substring(iPosReferer, message.IndexOf("\r\n", iPosReferer) - iPosReferer).Substring(9);
 
-                        if (type.Equals("GET"))
-                        {
-                            Byte[] byteFile = null;
-                            String status = "200";
-                            String path = "";
-
-                            switch (url)
+                            if (!type.Equals("GET") && !type.Equals("POST"))
                             {
-                                case "/":
-                                    path = "index.html";
-                                    break;
-                                case "/log":
-                                    path = "log";
-                                    break;
-                                case "/users":
-                                    path = "usermanage_list.html";
-                                    break;
-                                case "/create":
-                                    path = "usermanage_create.html";
-                                    break;
-                                case "/edit":
-                                    path = "usermanage_edit.html";
-                                    break;
-                                case "/delete":
-                                    path = "usermanage_delete.html";
-                                    break;
-                                default:
+                                Console.WriteLine("Unsupported request type encountered: {0}", type);
+                                // Send Error 400
+                                //client.Close(); Nodig voor SSL
+                                return;
+                            }
+
+                            Console.WriteLine("Request type: {0}\nRequest URL:  {1}\nRequest HTML: {2}", type, url, html);
+
+                            if (type.Equals("GET"))
+                            {
+                                Byte[] byteFile = null;
+                                String status = "200";
+                                String path = "";
+
+                                switch (url)
+                                {
+                                    case "/":
+                                        path = "index.html";
+                                        break;
+                                    case "/log":
+                                        path = "log";
+                                        break;
+                                    case "/users":
+                                        path = "usermanage_list.html";
+                                        break;
+                                    case "/create":
+                                        path = "usermanage_create.html";
+                                        break;
+                                    case "/edit":
+                                        path = "usermanage_edit.html";
+                                        break;
+                                    case "/delete":
+                                        path = "usermanage_delete.html";
+                                        break;
+                                    default:
+                                        status = "404";
+                                        break;
+                                }
+
+                                if (String.IsNullOrWhiteSpace(path))
                                     status = "404";
-                                    break;
+                                else if (!path.Equals("log"))
+                                    path = "SecuredPages\\" + path;
+
+                                try
+                                {
+                                    String htmlPage = "";
+
+                                    using (StreamReader sr = new StreamReader(path))
+                                        htmlPage = sr.ReadToEnd();
+
+                                    // Replace with something better
+                                    htmlPage = htmlPage.Replace("{Message}", notification);
+
+                                    byteFile = Encoding.ASCII.GetBytes(htmlPage);
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine("File could not be read. Message:");
+                                    Console.WriteLine(e.Message);
+                                }
+
+                                if (byteFile != null)
+                                {
+                                    //Socket socket = client.Client; Nodig voor SSL
+                                    SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
+                                    SendData(byteFile, ref sClient);
+                                }
                             }
-
-                            if (String.IsNullOrWhiteSpace(path))
-                                status = "404";
-                            else if (!path.Equals("log"))
-                                path = "SecuredPages\\" + path;
-
-                            try
+                            else // PUT
                             {
-                                String htmlPage = "";
+                                String postParams = message.Substring(message.LastIndexOf("\r\n"));
+                                Console.WriteLine("Post parameters: {0}", postParams);
 
-                                using (StreamReader sr = new StreamReader(path))
-                                    htmlPage = sr.ReadToEnd();
+                                String status = "";
+                                // Will be a path to a 40x page or the requested file
 
-                                // Replace with something better
-                                htmlPage = htmlPage.Replace("{Message}", notification);
+                                Byte[] byteFile = null;
+                                String path = HandlePOSTRequest(url, postParams, out status);
 
-                                byteFile = Encoding.ASCII.GetBytes(htmlPage);
-                            }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine("File could not be read. Message:");
-                                Console.WriteLine(e.Message);
-                            }
+                                try
+                                {
+                                    String htmlPage = "";
 
-                            if (byteFile != null)
-                            {
+                                    using (StreamReader sr = new StreamReader(path))
+                                        htmlPage = sr.ReadToEnd();
+
+                                    // Replace with something better
+                                    if (url.Equals("/"))
+                                        htmlPage = htmlPage.Replace("{Message}", "");
+
+                                    byteFile = Encoding.ASCII.GetBytes(htmlPage);
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine("File could not be read. Message:");
+                                    Console.WriteLine(e.Message);
+                                }
+
                                 //Socket socket = client.Client; Nodig voor SSL
                                 SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
                                 SendData(byteFile, ref sClient);
                             }
+
                         }
-                        else // PUT
-                        {
-                            String postParams = message.Substring(message.LastIndexOf("\r\n"));
-                            Console.WriteLine("Post parameters: {0}", postParams);
-
-                            String status = "";
-                            // Will be a path to a 40x page or the requested file
-
-                            Byte[] byteFile = null;
-                            String path = HandlePOSTRequest(url, postParams, out status);
-
-                            try
-                            {
-                                String htmlPage = "";
-
-                                using (StreamReader sr = new StreamReader(path))
-                                    htmlPage = sr.ReadToEnd();
-
-                                // Replace with something better
-                                if (url.Equals("/"))
-                                    htmlPage = htmlPage.Replace("{Message}", "");
-
-                                byteFile = Encoding.ASCII.GetBytes(htmlPage);
-                            }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine("File could not be read. Message:");
-                                Console.WriteLine(e.Message);
-                            }
-
-                            //Socket socket = client.Client; Nodig voor SSL
-                            SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
-                            SendData(byteFile, ref sClient);
-                        }
-
                     }
-                }
 
-                catch (AuthenticationException e)
-                {
-                    Console.WriteLine(e.Message);
-                    /*
-                    stream.Close();
-                    */
-                    sClient.Close();
+                    catch (AuthenticationException e)
+                    {
+                        Console.WriteLine(e.Message);
+                        /*
+                        stream.Close();
+                        */
+                        sClient.Close();
 
-                    return;
-                }
+                        return;
+                    }
 
-                catch (IOException e)
-                {
-                    Console.WriteLine(e.Message);
-                    /*
-                    stream.Close();
-                    */
-                    sClient.Close();
+                    catch (IOException e)
+                    {
+                        Console.WriteLine(e.Message);
+                        /*
+                        stream.Close();
+                        */
+                        sClient.Close();
 
-                    return;
-                }
-                
-                finally
-                {
-                    /*
-                    stream.Close();
-                    */
+                        return;
+                    }
 
-                    sClient.Close();
-                }
+                    finally
+                    {
+                        /*
+                        stream.Close();
+                        */
+
+                        sClient.Close();
+                    }
+
+                }).Start();
             }
         }
         /// <summary>
@@ -251,7 +256,8 @@ namespace Eindopdracht
                 decoder.GetChars(buffer, 0, bytes, chars, 0);
                 messageData.Append(chars);
 
-                if (messageData.ToString().Contains("\r\n")) {
+                if (messageData.ToString().Contains("\r\n"))
+                {
                     break;
                 }
             } while (bytes != 0);

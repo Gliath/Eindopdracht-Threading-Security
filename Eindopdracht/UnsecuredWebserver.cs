@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Eindopdracht
@@ -37,99 +38,106 @@ namespace Eindopdracht
                 if (sClient.Connected)
                     Console.WriteLine("Client Connected\nClient IP: {0}", sClient.RemoteEndPoint);
 
-                Byte[] bReceived = new Byte[1024];
-                int i = sClient.Receive(bReceived, bReceived.Length, 0);
-                String sRequest = Encoding.ASCII.GetString(bReceived);
-                Console.WriteLine(sRequest);
 
-                int iFirstPos = sRequest.IndexOf(' ');
-                int iLastPos = sRequest.IndexOf(' ', iFirstPos + 1);
-
-                Console.WriteLine("HELLO {0}", sRequest);
-
-                if (iFirstPos > 0 && iLastPos > 0)
+                new Thread(m =>
                 {
-                    String rType = sRequest.Substring(0, iFirstPos);
-                    String rURL = sRequest.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
-                    String rHTML = sRequest.Substring(iLastPos + 1, 8);
 
-                    if (!rType.Equals("GET") && !rType.Equals("POST"))
+                    Byte[] bReceived = new Byte[1024];
+                    int i = sClient.Receive(bReceived, bReceived.Length, 0);
+                    String sRequest = Encoding.ASCII.GetString(bReceived);
+                    Console.WriteLine(sRequest);
+
+                    int iFirstPos = sRequest.IndexOf(' ');
+                    int iLastPos = sRequest.IndexOf(' ', iFirstPos + 1);
+
+                    Console.WriteLine("HELLO {0}", sRequest);
+
+                    if (iFirstPos > 0 && iLastPos > 0)
                     {
-                        Console.WriteLine("Unsupported request type encountered: {0}", rType);
-                        // Send Error 400
+                        String rType = sRequest.Substring(0, iFirstPos);
+                        String rURL = sRequest.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
+                        String rHTML = sRequest.Substring(iLastPos + 1, 8);
+
+                        if (!rType.Equals("GET") && !rType.Equals("POST"))
+                        {
+                            Console.WriteLine("Unsupported request type encountered: {0}", rType);
+                            // Send Error 400
+                            sClient.Close();
+                            return;
+                        }
+
+                        Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
+
+                        if (rType.Equals("POST"))
+                        {
+                            Dictionary<string, string> post = HandlePostRequest(sRequest);
+
+                            switch (rURL)
+                            {
+                                case "/login":
+                                    SessionManager.Warning warning;
+                                    HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
+                                    break;
+                            }
+                        }
+
+                        String sStatus = "";
+                        // Will be a path to a 40x page if something went wrong or default file or the requested file
+
+                        Byte[] bByteFile = null;
+                        String path = HandleURLRequest(rURL, out sStatus);
+                        if (!String.IsNullOrWhiteSpace(path))
+                        {
+                            FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            BinaryReader bReader = new BinaryReader(fStream);
+
+                            byte[] bytes = new byte[fStream.Length];
+                            int read;
+                            while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
+
+                            bByteFile = bytes;
+
+                            bReader.Close();
+                            fStream.Close();
+                        }
+                        else // This only occurs when DirectoryBrowsing is on and the Directory exists
+                        {
+                            try
+                            {
+                                rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
+                                String sHTML = "";
+                                String templateHTML = "";
+                                String templateList = "";
+                                String templateListItem = "";
+
+                                using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
+                                    templateHTML = sr.ReadToEnd();
+
+                                using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
+                                    templateListItem = sr.ReadToEnd();
+
+                                foreach (String sItem in GetAllFilesFromDirectory(rURL))
+                                    templateList += templateListItem.Replace("{Item}", sItem);
+
+                                sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
+                                bByteFile = Encoding.ASCII.GetBytes(sHTML);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("The template could not be read. Message:");
+                                Console.WriteLine(e.Message);
+                            }
+                        }
+
+                        String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
+
+                        SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
+                        SendData(bByteFile, ref sClient);
+
                         sClient.Close();
-                        continue;
                     }
 
-                    Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
-
-                    if (rType.Equals("POST"))
-                    {
-                        Dictionary<string, string> post = HandlePostRequest(sRequest);
-
-                        switch(rURL) {
-                            case "/login":
-                                SessionManager.Warning warning;
-                                HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
-                                break;
-                        }
-                    }
-
-                    String sStatus = "";
-                    // Will be a path to a 40x page if something went wrong or default file or the requested file
-
-                    Byte[] bByteFile = null;
-                    String path = HandleURLRequest(rURL, out sStatus);
-                    if (!String.IsNullOrWhiteSpace(path))
-                    {
-                        FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        BinaryReader bReader = new BinaryReader(fStream);
-
-                        byte[] bytes = new byte[fStream.Length];
-                        int read;
-                        while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
-
-                        bByteFile = bytes;
-
-                        bReader.Close();
-                        fStream.Close();
-                    }
-                    else // This only occurs when DirectoryBrowsing is on and the Directory exists
-                    {
-                        try
-                        {
-                            rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
-                            String sHTML = "";
-                            String templateHTML = "";
-                            String templateList = "";
-                            String templateListItem = "";
-
-                            using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
-                                templateHTML = sr.ReadToEnd();
-
-                            using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
-                                templateListItem = sr.ReadToEnd();
-
-                            foreach (String sItem in GetAllFilesFromDirectory(rURL))
-                                templateList += templateListItem.Replace("{Item}", sItem);
-
-                            sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
-                            bByteFile = Encoding.ASCII.GetBytes(sHTML);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine("The template could not be read. Message:");
-                            Console.WriteLine(e.Message);
-                        }
-                    }
-
-                    String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
-
-                    SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
-                    SendData(bByteFile, ref sClient);
-
-                    sClient.Close();
-                }
+                }).Start();
             }
         }
 
