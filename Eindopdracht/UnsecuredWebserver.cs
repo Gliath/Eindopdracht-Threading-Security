@@ -15,6 +15,7 @@ namespace Eindopdracht
     {
         private TcpListener listener;
         private SettingsReader Settings;
+        private Dictionary<string, int> activeIPs;
         private SessionManager sessionManager;
 
         public UnsecuredWebserver(SettingsReader Settings, Connector connector)
@@ -22,6 +23,7 @@ namespace Eindopdracht
         {
             this.Settings = Settings;
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.Port);
+            activeIPs = new Dictionary<string, int>();
             sessionManager = new SessionManager(connector);
         }
 
@@ -65,22 +67,17 @@ namespace Eindopdracht
 
                     if (rType.Equals("POST"))
                     {
-                        Dictionary<string, string> post = HandlePostRequest(sRequest);
-
-                        switch(rURL) {
-                            case "/login":
-                                SessionManager.Warning warning;
-                                HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
-                                break;
-                        }
+                        IPEndPoint ep = sClient.RemoteEndPoint as IPEndPoint;
+                        HandlePostWithURL(sRequest, rURL, ep.Address.ToString());
                     }
 
                     String sStatus = "";
                     // Will be a path to a 40x page if something went wrong or default file or the requested file
 
                     Byte[] bByteFile = null;
-                    String path = HandleURLRequest(rURL, out sStatus);
-                    if (!String.IsNullOrWhiteSpace(path))
+                    //String path = HandleURLRequest(rURL, out sStatus);
+                    
+                    /*if (!String.IsNullOrWhiteSpace(path))
                     {
                         FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                         BinaryReader bReader = new BinaryReader(fStream);
@@ -128,9 +125,14 @@ namespace Eindopdracht
                     SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
                     SendData(bByteFile, ref sClient);
 
-                    sClient.Close();
+                    sClient.Close();*/
                 }
             }
+        }
+
+        private int getSessionOfActiveIP(String IP)
+        {
+            return activeIPs[IP];
         }
 
         private String HandleURLRequest(String rURL, out String sStatusCode)
@@ -176,6 +178,49 @@ namespace Eindopdracht
             }
         }
 
+        private void HandlePostWithURL(String request, String url, String IP)
+        {
+            Dictionary<string, string> post = HandlePostRequest(request);
+
+            switch (url)
+            {
+                case "/login":
+                    SessionManager.Warning warning;
+                    int hashcode = HandleLoginAttempt(post["body"], IP, out warning);
+
+                    switch (warning)
+                    {
+                        case SessionManager.Warning.WRONG_COMBINATION:
+                            Console.WriteLine("wrong combination");
+                            break;
+                        case SessionManager.Warning.USER_ALREADY_LOGGED_IN:
+                            Console.WriteLine("user is already logged in");
+                            break;
+                        case SessionManager.Warning.SESSION_EXPIRED:
+                            Console.WriteLine("session already expired");
+                            break;
+                        case SessionManager.Warning.BLOCKED_IP:
+                            Console.WriteLine("IP is blocked");
+                            break;
+                        case SessionManager.Warning.NONE:
+                            if (hashcode != -1)
+                            {
+                                activeIPs.Add(IP, hashcode);
+                            }
+
+                            Console.WriteLine("user has logged in");
+
+                            break;
+                    }
+
+                    break;
+
+                case "/logout":
+
+                    break;
+            }
+        }
+
         private Dictionary<string, string> HandlePostRequest(String request)
         {
             Dictionary<string, string> post = new Dictionary<string, string>();
@@ -191,6 +236,7 @@ namespace Eindopdracht
 
         private int HandleLoginAttempt(String jsonPackage, String IP, out SessionManager.Warning warning)
         {
+            Console.WriteLine(" DASFKDASF " + IP);
             JObject package = JObject.Parse(jsonPackage);
             string username = (String)package["username"];
             string password = (String)package["password"];
