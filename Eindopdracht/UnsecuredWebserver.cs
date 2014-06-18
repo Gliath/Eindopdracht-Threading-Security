@@ -58,21 +58,31 @@ namespace Eindopdracht
                         String rType = sRequest.Substring(0, iFirstPos);
                         String rURL = sRequest.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
                         String rHTML = sRequest.Substring(iLastPos + 1, 8);
-                        
+
+                        bool file = false;
                         switch(rType) {
                             case "GET":
                                 HandleGetWithURL(sRequest, rURL, IP.Address.ToString());
+                                file = true;
                                 break;
                             case "POST":
                                 HandlePostWithURL(sRequest, rURL, IP.Address.ToString());
+                                file = true;
                                 break;
                             default:
                                 Console.WriteLine("Unsupported request type encountered: {0}", rType);
+                                file = true;
                                 sClient.Close(); // Send Error 400
                                 break;
                         }
 
                         Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
+
+                        if (file == true)
+                        {
+                            sClient.Close();
+                            return;
+                        }
 
                         //String sStatus = "";
                         // Will be a path to a 40x page if something went wrong or default file or the requested file
