@@ -74,9 +74,10 @@ namespace Eindopdracht
 
                         Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
 
-                        /*String sStatus = "";
+                        //String sStatus = "";
                         // Will be a path to a 40x page if something went wrong or default file or the requested file
 
+                        String sStatus = "";
                         Byte[] bByteFile = null;
                         String path = HandleURLRequest(rURL, out sStatus);
 
@@ -85,30 +86,13 @@ namespace Eindopdracht
                             FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                             BinaryReader bReader = new BinaryReader(fStream);
 
-                            if (rType.Equals("POST"))
-                            {
-                                Dictionary<string, string> post = HandlePostRequest(sRequest);
-
-                                switch (rURL)
-                                {
-                                    case "/login":
-                                        SessionManager.Warning warning;
-                                        HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
-                                        break;
-                                }
-                            }
-
-                            
-                            String sStatus = "";
                             // Will be a path to a 40x page if something went wrong or default file or the requested file
-
-                            Byte[] bByteFile = null;
-                            String path = HandleURLRequest(rURL, out sStatus);
+                            path = HandleURLRequest(rURL, out sStatus);
 
                             if (!String.IsNullOrWhiteSpace(path))
                             {
-                                FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                                BinaryReader bReader = new BinaryReader(fStream);
+                                fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                                bReader = new BinaryReader(fStream);
 
                                 byte[] bytes = new byte[fStream.Length];
                                 int read;
@@ -155,7 +139,6 @@ namespace Eindopdracht
 
                             sClient.Close();
                         }
-                    }*/
 
                     sClient.Close();
                     }
@@ -212,6 +195,7 @@ namespace Eindopdracht
 
                 // The directory does not exist, return a 404 page
                 sStatusCode = "404";
+
                 return "ErrorPages\\404.html";
             }
         }
@@ -259,8 +243,8 @@ namespace Eindopdracht
                     }
 
                     break;
+                }
             }
-        }
 
         private void HandlePostWithURL(String request, String url, String IP)
         {
