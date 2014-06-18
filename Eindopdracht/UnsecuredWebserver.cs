@@ -1,10 +1,12 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Eindopdracht
@@ -13,12 +15,14 @@ namespace Eindopdracht
     {
         private TcpListener listener;
         private SettingsReader Settings;
+        private SessionManager sessionManager;
 
-        public UnsecuredWebserver(SettingsReader Settings)
+        public UnsecuredWebserver(SettingsReader Settings, Connector connector)
             : base(Settings)
         {
             this.Settings = Settings;
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.Port);
+            sessionManager = new SessionManager(connector);
         }
 
         public override void StartListening()
@@ -41,6 +45,8 @@ namespace Eindopdracht
                 int iFirstPos = sRequest.IndexOf(' ');
                 int iLastPos = sRequest.IndexOf(' ', iFirstPos + 1);
 
+                Console.WriteLine("HELLO {0}", sRequest);
+
                 if (iFirstPos > 0 && iLastPos > 0)
                 {
                     String rType = sRequest.Substring(0, iFirstPos);
@@ -56,6 +62,18 @@ namespace Eindopdracht
                     }
 
                     Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
+
+                    if (rType.Equals("POST"))
+                    {
+                        Dictionary<string, string> post = HandlePostRequest(sRequest);
+
+                        switch(rURL) {
+                            case "/login":
+                                SessionManager.Warning warning;
+                                HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
+                                break;
+                        }
+                    }
 
                     String sStatus = "";
                     // Will be a path to a 40x page if something went wrong or default file or the requested file
@@ -156,6 +174,28 @@ namespace Eindopdracht
                 sStatusCode = "404";
                 return "ErrorPages\\404.html";
             }
+        }
+
+        private Dictionary<string, string> HandlePostRequest(String request)
+        {
+            Dictionary<string, string> post = new Dictionary<string, string>();
+
+            Match match = Regex.Match(request, @"{([^}]*)");
+            if (match.Success)
+            {
+                post.Add("body", "{" + match.Groups[1].Value + "}");
+            }
+
+            return post;
+        }
+
+        private int HandleLoginAttempt(String jsonPackage, String IP, out SessionManager.Warning warning)
+        {
+            JObject package = JObject.Parse(jsonPackage);
+            string username = (String)package["username"];
+            string password = (String)package["password"];
+
+            return sessionManager.Login(username, password, IP, out warning);
         }
     }
 }
