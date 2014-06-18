@@ -25,10 +25,10 @@ namespace Eindopdracht
         }
 
         // There can be only one consumer (Singleton pattern).
-        public static Logger getInstance() {
-            if(instance == null) {
+        public static Logger getInstance()
+        {
+            if (instance == null)
                 instance = new Logger();
-            }
 
             return instance;
         }
@@ -36,9 +36,21 @@ namespace Eindopdracht
         // This method is used by a thread to keep processing logs while it's alive.
         public void processLogs()
         {
-            while (canProcessLogs)
+            while (true)
             {
-                Console.WriteLine(String.Format("Popped: {0}", pop()));
+                while (canProcessLogs)
+                    Console.WriteLine(String.Format("Popped: {0}", pop()));
+
+                Monitor.Wait(canProcessLogs);
+            }
+        }
+
+        public void testAddLogs()
+        {
+            while (true)
+            {
+                add(DateTime.Now.ToShortTimeString());
+                Thread.Sleep(TimeSpan.FromSeconds(1));
             }
         }
 
@@ -50,19 +62,19 @@ namespace Eindopdracht
         public void resumeProcessing()
         {
             canProcessLogs = true;
+            Monitor.Pulse(canProcessLogs);
         }
 
         // This method puts the entry at the rear of the queue.
-        public bool add(String entry) {
+        public bool add(String entry)
+        {
             // This is used by multiple producers.
             lock (this)
             {
                 while (canReadQueue && queue.isFull())
-                {
                     Monitor.Wait(this);
-                }
 
-                if (queue.add(entry))
+                if (!queue.add(entry))
                     return false;
 
                 canReadQueue = true;
@@ -79,9 +91,7 @@ namespace Eindopdracht
             lock (this)
             {
                 while (!canReadQueue && queue.isEmpty())
-                {
                     Monitor.Wait(this);
-                }
 
                 String entry = queue.pop();
 

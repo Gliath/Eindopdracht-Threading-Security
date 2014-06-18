@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -90,6 +91,7 @@ namespace Eindopdracht
                             String html = message.Substring(iLastPos + 1, 8);
 
                             String referer;
+                            String[] getParams = url.Split('?');
                             int iPosReferer = message.IndexOf("Referer: ");
                             if (iPosReferer > 0)
                                 referer = message.Substring(iPosReferer, message.IndexOf("\r\n", iPosReferer) - iPosReferer).Substring(9);
@@ -124,15 +126,24 @@ namespace Eindopdracht
                                     case "/create":
                                         path = "usermanage_create.html";
                                         break;
-                                    case "/edit":
-                                        path = "usermanage_edit.html";
-                                        break;
-                                    case "/delete":
-                                        path = "usermanage_delete.html";
-                                        break;
-                                    default:
-                                        status = "404";
-                                        break;
+                                }
+
+                                if ((url.StartsWith("/edit") && url.Contains('?')) || url.StartsWith("/delete") && url.Contains('?'))
+                                {
+                                    if (getParams.Length != 2 && !getParams[1].ToLower().StartsWith("id="))
+                                    {
+                                        return; // Something better
+                                    }
+
+                                    switch (getParams[0])
+                                    {
+                                        case "/edit":
+                                            path = "usermanage_edit.html";
+                                            break;
+                                        case "/delete":
+                                            path = "usermanage_delete.html";
+                                            break;
+                                    }
                                 }
 
                                 if (String.IsNullOrWhiteSpace(path))
@@ -143,9 +154,52 @@ namespace Eindopdracht
                                 try
                                 {
                                     String htmlPage = "";
+                                    if (path.Equals("log"))
+                                    {
 
-                                    using (StreamReader sr = new StreamReader(path))
-                                        htmlPage = sr.ReadToEnd();
+                                    }
+                                    else if (path.Contains("list")) // list of users
+                                    {
+                                        using (StreamReader sr = new StreamReader(path))
+                                            htmlPage = sr.ReadToEnd();
+
+                                        String listItem = "";
+                                        using (StreamReader sr = new StreamReader("SecuredPages\\usermanage_listitem.html"))
+                                            listItem = sr.ReadToEnd();
+
+                                        List<User> users = new List<User>();
+                                        MySqlDataReader dr = connector.query("SELECT * FROM users");
+                                        while (dr.Read())
+                                            users.Add(new User(int.Parse(dr.GetString("id")), dr.GetString("username"), dr.GetString("password"), dr.GetString("type")));
+
+                                        connector.CloseConnection();
+
+                                        String listUsers = "";
+                                        foreach (User user in users)
+                                            listUsers += listItem.Replace("{username}", user.Username).Replace("{isAdmin}", user.Type.Equals("super") ? "checked" : "").Replace("{id}", user.ID.ToString());
+
+                                        htmlPage = htmlPage.Replace("{ListUsers}", listUsers);
+
+                                    }
+                                    else if (!status.Equals("200"))
+                                        using (StreamReader sr = new StreamReader("ErrorPages\\" + status + ".html"))
+                                            htmlPage = sr.ReadToEnd();
+                                    else
+                                        using (StreamReader sr = new StreamReader(path))
+                                            htmlPage = sr.ReadToEnd();
+
+
+                                    if ((url.StartsWith("/edit") && url.Contains('?')) || url.StartsWith("/delete") && url.Contains('?'))
+                                    {
+                                        MySqlDataReader dr = connector.query("SELECT * from users where id = '" + getParams[1].Substring(3) + "'");
+                                        // If the database returns a row then return warning NONE or else keep track of login attemps of this IP.
+                                        if (dr.Read())
+                                        {
+                                            htmlPage = htmlPage.Replace("{user}", dr[1].ToString()).Replace("{id}", dr[0].ToString());
+                                            htmlPage = htmlPage.Replace("{oldUsername}", dr[1].ToString()).Replace("{oldIsAdmin", dr[3].ToString().Equals("super") ? "checked" : "");
+                                            connector.CloseConnection();
+                                        }
+                                    }
 
                                     // Replace with something better
                                     htmlPage = htmlPage.Replace("{Message}", notification);

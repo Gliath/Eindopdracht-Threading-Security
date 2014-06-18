@@ -27,6 +27,8 @@ namespace Eindopdracht
             
             Thread tLogger = new Thread(logger.processLogs);
 
+            //new Thread(logger.testAddLogs).Start();
+
             tLogger.Start();
             tWeb.Start();
             tAdmin.Start();

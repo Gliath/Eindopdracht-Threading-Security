@@ -13,12 +13,13 @@ namespace Eindopdracht
         private MySqlConnection connection;
         private static string SERVER = "localhost";
         private static string DATABASE = "threading";
+        private static string PORT = "3307";
         private static string USERNAME = "root";
-        private static string PASSWORD = ""; // TODO: change to something more difficult!
+        private static string PASSWORD = "root"; // TODO: change to something more difficult!
 
         private Connector()
         {
-            string connectionString = "SERVER=" + SERVER + ";" + "DATABASE=" + DATABASE + ";" + "USERNAME=" + USERNAME + ";" + "PASSWORD=" + PASSWORD + ";";
+            string connectionString = "SERVER=" + SERVER + ";" + "PORT=" + PORT + ";" + "DATABASE=" + DATABASE + ";" + "USERNAME=" + USERNAME + ";" + "PASSWORD=" + PASSWORD + ";";
             connection = new MySqlConnection(connectionString);
         }
 

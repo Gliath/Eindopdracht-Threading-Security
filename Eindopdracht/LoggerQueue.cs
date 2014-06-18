@@ -38,10 +38,7 @@ namespace Eindopdracht
 
         public bool add(String entry)
         {
-            if (String.IsNullOrWhiteSpace(entry))
-                return false;
-
-            if (isFull())
+            if (String.IsNullOrWhiteSpace(entry) || isFull())
                 return false;
 
             elements[putpos] = entry;
