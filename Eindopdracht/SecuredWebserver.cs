@@ -22,10 +22,16 @@ namespace Eindopdracht
         private SettingsReader Settings;
         private TcpListener listener;
 
+        private Connector connector;
+        private SessionManager sessions;
+
         public SecuredWebserver(SettingsReader Settings)
             : base(Settings)
         {
             this.Settings = Settings;
+            connector = Connector.getInstance();
+            sessions = new SessionManager(connector);
+
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.AdminPort);
             //certificate = new X509Certificate2(cerficicate_name, "ChrisLuke");
         }
@@ -78,6 +84,11 @@ namespace Eindopdracht
                         String url = message.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
                         String html = message.Substring(iLastPos + 1, 8);
 
+                        String referer;
+                        int iPosReferer = message.IndexOf("Referer: ");
+                        if (iPosReferer > 0)
+                            referer = message.Substring(iPosReferer, message.IndexOf("\r\n", iPosReferer) - iPosReferer).Substring(9);
+
                         if (!type.Equals("GET") && !type.Equals("POST"))
                         {
                             Console.WriteLine("Unsupported request type encountered: {0}", type);
@@ -90,11 +101,45 @@ namespace Eindopdracht
 
                         if (type.Equals("GET"))
                         {
-                            String status = "";
-                            // Will be a path to a 40x page or the requested file
-
                             Byte[] byteFile = null;
-                            String path = HandleGETRequest(url, out status);
+                            String status = "200";
+                            String path = "";
+
+                            switch (url)
+                            {
+                                case "/":
+                                    path = "index.html";
+                                    break;
+                                case "/index2":
+                                    path = "index2.html";
+                                    break;
+                                case "/index3":
+                                    path = "index3.html";
+                                    break;
+                                case "/log":
+                                    path = "log";
+                                    break;
+                                case "/users":
+                                    break;
+                                case "/create":
+                                    break;
+                                case "/edit":
+                                    break;
+                                case "/delete":
+                                    break;
+                                case "/deleteUser":
+                                    break;
+                                default:
+                                    break;
+                            }
+
+                            if (String.IsNullOrWhiteSpace(path))
+                                status = "404";
+                            else
+                                path = "SecuredPages\\" + path;
+
+
+
 
                             try
                             {
@@ -103,7 +148,46 @@ namespace Eindopdracht
                                 using (StreamReader sr = new StreamReader(path))
                                     htmlPage = sr.ReadToEnd();
 
-                                htmlPage = htmlPage.Replace("{LoginError}", "");
+                                // Replace with something better
+                                if(url.Equals("/"))
+                                    htmlPage = htmlPage.Replace("{Message}", "");
+
+                                byteFile = Encoding.ASCII.GetBytes(htmlPage);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("File could not be read. Message:");
+                                Console.WriteLine(e.Message);
+                            }
+
+                            if (byteFile != null)
+                            {
+                                //Socket socket = client.Client; Nodig voor SSL
+                                SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
+                                SendData(byteFile, ref sClient);
+                            }
+                        }
+                        else // PUT
+                        {
+                            String postParams = message.Substring(message.LastIndexOf("\r\n"));
+                            Console.WriteLine("Post parameters: {0}", postParams);
+
+                            String status = "";
+                            // Will be a path to a 40x page or the requested file
+
+                            Byte[] byteFile = null;
+                            String path = HandlePOSTRequest(url, postParams, out status);
+
+                            try
+                            {
+                                String htmlPage = "";
+
+                                using (StreamReader sr = new StreamReader(path))
+                                    htmlPage = sr.ReadToEnd();
+
+                                // Replace with something better
+                                if (url.Equals("/"))
+                                    htmlPage = htmlPage.Replace("{Message}", "");
 
                                 byteFile = Encoding.ASCII.GetBytes(htmlPage);
                             }
@@ -116,11 +200,6 @@ namespace Eindopdracht
                             //Socket socket = client.Client; Nodig voor SSL
                             SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
                             SendData(byteFile, ref sClient);
-                        }
-                        else // PUT
-                        {
-                            String postParams = message.Substring(message.LastIndexOf("\r\n"));
-                            Console.WriteLine("Post parameters: {0}", postParams);
                         }
 
                     }
@@ -185,7 +264,7 @@ namespace Eindopdracht
             return messageData.ToString();
         }
 
-        private String HandleGETRequest(String url, out String statusCode)
+        private String HandlePOSTRequest(String url, String postParams, out String statusCode)
         {
             statusCode = "200";
             String path = "";
