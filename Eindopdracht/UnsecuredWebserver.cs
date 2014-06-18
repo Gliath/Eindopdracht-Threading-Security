@@ -18,21 +18,23 @@ namespace Eindopdracht
         private SettingsReader Settings;
         private Dictionary<string, int> activeIPs;
         private SessionManager sessionManager;
+        private Logger logger;
 
-        public UnsecuredWebserver(SettingsReader Settings, Connector connector)
+        public UnsecuredWebserver(SettingsReader Settings, Connector connector, Logger logger)
             : base(Settings)
         {
             this.Settings = Settings;
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.Port);
             activeIPs = new Dictionary<string, int>();
             sessionManager = new SessionManager(connector);
+            this.logger = logger;
         }
 
         public override void StartListening()
         {
             listener.Start();
             Console.WriteLine("Server online, listening");
-
+           
             while (true)
             {
                 Socket sClient = listener.AcceptSocket();
@@ -50,8 +52,6 @@ namespace Eindopdracht
                     int iFirstPos = sRequest.IndexOf(' ');
                     int iLastPos = sRequest.IndexOf(' ', iFirstPos + 1);
 
-                    Console.WriteLine("HELLO {0}", sRequest);
-
                     if (iFirstPos > 0 && iLastPos > 0)
                     {
                         String rType = sRequest.Substring(0, iFirstPos);
@@ -67,91 +67,97 @@ namespace Eindopdracht
                         }
 
                         Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}", rType, rURL, rHTML);
+
+
                         IPEndPoint ep = sClient.RemoteEndPoint as IPEndPoint;
                         HandlePostWithURL(sRequest, rURL, ep.Address.ToString());
-                    }
 
-                    String sStatus = "";
-                    // Will be a path to a 40x page if something went wrong or default file or the requested file
 
-                    Byte[] bByteFile = null;
-                    //String path = HandleURLRequest(rURL, out sStatus);
-
-                    /*if (!String.IsNullOrWhiteSpace(path))
-                    {
-                        FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        BinaryReader bReader = new BinaryReader(fStream);
-
-                        if (rType.Equals("POST"))
-                        {
-                            Dictionary<string, string> post = HandlePostRequest(sRequest);
-
-                            switch (rURL)
-                            {
-                                case "/login":
-                                    SessionManager.Warning warning;
-                                    HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
-                                    break;
-                            }
-                        }
-
-                        String sStatus = "";
+                        /*String sStatus = "";
                         // Will be a path to a 40x page if something went wrong or default file or the requested file
 
                         Byte[] bByteFile = null;
                         String path = HandleURLRequest(rURL, out sStatus);
+
                         if (!String.IsNullOrWhiteSpace(path))
                         {
                             FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                             BinaryReader bReader = new BinaryReader(fStream);
 
-                            byte[] bytes = new byte[fStream.Length];
-                            int read;
-                            while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
-
-                            bByteFile = bytes;
-
-                            bReader.Close();
-                            fStream.Close();
-                        }
-                        else // This only occurs when DirectoryBrowsing is on and the Directory exists
-                        {
-                            try
+                            if (rType.Equals("POST"))
                             {
-                                rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
-                                String sHTML = "";
-                                String templateHTML = "";
-                                String templateList = "";
-                                String templateListItem = "";
+                                Dictionary<string, string> post = HandlePostRequest(sRequest);
 
-                                using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
-                                    templateHTML = sr.ReadToEnd();
-
-                                using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
-                                    templateListItem = sr.ReadToEnd();
-
-                                foreach (String sItem in GetAllFilesFromDirectory(rURL))
-                                    templateList += templateListItem.Replace("{Item}", sItem);
-
-                                sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
-                                bByteFile = Encoding.ASCII.GetBytes(sHTML);
+                                switch (rURL)
+                                {
+                                    case "/login":
+                                        SessionManager.Warning warning;
+                                        HandleLoginAttempt(post["body"], sClient.RemoteEndPoint.ToString(), out warning);
+                                        break;
+                                }
                             }
-                            catch (Exception e)
+
+                            
+                            String sStatus = "";
+                            // Will be a path to a 40x page if something went wrong or default file or the requested file
+
+                            Byte[] bByteFile = null;
+                            String path = HandleURLRequest(rURL, out sStatus);
+
+                            if (!String.IsNullOrWhiteSpace(path))
                             {
-                                Console.WriteLine("The template could not be read. Message:");
-                                Console.WriteLine(e.Message);
+                                FileStream fStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                                BinaryReader bReader = new BinaryReader(fStream);
+
+                                byte[] bytes = new byte[fStream.Length];
+                                int read;
+                                while ((read = bReader.Read(bytes, 0, bytes.Length)) != 0) { }
+
+                                bByteFile = bytes;
+
+                                bReader.Close();
+                                fStream.Close();
                             }
+                            else // This only occurs when DirectoryBrowsing is on and the Directory exists
+                            {
+                                try
+                                {
+                                    rURL = rURL.EndsWith("/") ? rURL : rURL + "/";
+                                    String sHTML = "";
+                                    String templateHTML = "";
+                                    String templateList = "";
+                                    String templateListItem = "";
+
+                                    using (StreamReader sr = new StreamReader("Template\\DirectoryBrowsing.html"))
+                                        templateHTML = sr.ReadToEnd();
+
+                                    using (StreamReader sr = new StreamReader("Template\\DirBrowseList.html"))
+                                        templateListItem = sr.ReadToEnd();
+
+                                    foreach (String sItem in GetAllFilesFromDirectory(rURL))
+                                        templateList += templateListItem.Replace("{Item}", sItem);
+
+                                    sHTML = templateHTML.Replace("{List}", templateList).Replace("{URL}", rURL);
+                                    bByteFile = Encoding.ASCII.GetBytes(sHTML);
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine("The template could not be read. Message:");
+                                    Console.WriteLine(e.Message);
+                                }
+                            }
+
+                            String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
+
+                            SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
+                            SendData(bByteFile, ref sClient);
+
+                            sClient.Close();
                         }
+                    }*/
 
-                        String sMime = GetMime(rURL.Substring(rURL.Contains('.') ? rURL.LastIndexOf('.') : 0));
-
-                        SendHeader(rHTML, sStatus, sMime, bByteFile.Length, ref sClient);
-                        SendData(bByteFile, ref sClient);
-
-                        sClient.Close();
+                    sClient.Close();
                     }
-
-                    sClient.Close();*/
                 }).Start();
             }
         }
@@ -209,6 +215,52 @@ namespace Eindopdracht
             }
         }
 
+        private void HandleGetWithURL(String request, String url, String IP)
+        {
+            bool isLoggedIn = CheckStateOfSession(IP);
+            User user = isLoggedIn ? getSessionOfActiveIP(IP).User : null;
+
+            switch (url)
+            {
+                case "/logs":
+                    if (isLoggedIn == false)
+                    {
+                        Console.WriteLine("No access to this feature.");
+                        return;
+                    }
+
+                    switch (user.Type)
+                    {
+                        case User.USER_TYPE.ADMIN:
+                            // goto admin part
+                            break;
+                        case User.USER_TYPE.SUPPORTER:
+                            // goto supporter part
+                            break;
+                    }
+
+                    break;
+                case "/settings":
+                    if (isLoggedIn == false)
+                    {
+                        Console.WriteLine("No access to this feature.");
+                        return;
+                    }
+
+                    switch (user.Type)
+                    {
+                        case User.USER_TYPE.ADMIN:
+                            // goto admin part
+                            break;
+                        case User.USER_TYPE.SUPPORTER:
+                            // goto supporter part
+                            break;
+                    }
+
+                    break;
+            }
+        }
+
         private void HandlePostWithURL(String request, String url, String IP)
         {
             Dictionary<string, string> post = HandlePostRequest(request);
@@ -218,7 +270,7 @@ namespace Eindopdracht
                 case "/login":
                     if (activeIPs.ContainsKey(IP))
                     {
-                        Console.Write("user is already logged in");
+                        Console.Write("The user is already logged in.");
                         break;
                     }
 
@@ -228,20 +280,20 @@ namespace Eindopdracht
                     switch (warning)
                     {
                         case SessionManager.Warning.WRONG_COMBINATION:
-                            Console.WriteLine("wrong combination");
+                            Console.WriteLine("The user has entered a wrong combination.");
                             break;
                         case SessionManager.Warning.USER_ALREADY_LOGGED_IN:
-                            Console.WriteLine("user is already logged in");
+                            Console.WriteLine("The user is already logged in.");
                             break;
                         case SessionManager.Warning.SESSION_EXPIRED:
-                            Console.WriteLine("session already expired");
+                            Console.WriteLine("The session is expired.");
                             break;
                         case SessionManager.Warning.BLOCKED_IP:
-                            Console.WriteLine("IP is blocked");
+                            Console.WriteLine("{0} is blocked.", IP);
                             break;
                         case SessionManager.Warning.NONE:
                             activeIPs.Add(IP, hashcode);
-                            Console.WriteLine("user has logged in");
+                            Console.WriteLine("The user has logged in.");
                             break;
                     }
 
@@ -254,6 +306,8 @@ namespace Eindopdracht
                         activeIPs.Remove(IP);
                         Console.WriteLine("user has logged out");
                     }
+
+                    Console.WriteLine("no user logged in");
 
                     break;
             }
@@ -279,6 +333,28 @@ namespace Eindopdracht
             string password = (String)package["password"];
 
             return sessionManager.Login(username, password, IP, out warning);
+        }
+
+        private bool CheckStateOfSession(String IP)
+        {
+            if (activeIPs.ContainsKey(IP))
+            {
+                SessionManager.Warning warning = sessionManager.checkSession(getHashcodeOfActiveIP(IP));
+
+                switch (warning)
+                {
+                    case SessionManager.Warning.SESSION_EXPIRED:
+                        Console.WriteLine("The session for {0} has expired as {1} hours have passed.", IP, Session.SESSION_LENGTH_IN_HOURS);
+                        return false;
+                    case SessionManager.Warning.SESSION_DOES_NOT_EXIST:
+                        Console.WriteLine("The user has not the necessary privileges to access this feature.");
+                        return false;
+                    case SessionManager.Warning.NONE:
+                        return true;
+                }
+            }
+
+            return false;
         }
     }
 }

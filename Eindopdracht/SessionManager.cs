@@ -140,7 +140,7 @@ namespace Eindopdracht
             return hashcode;
         }
 
-        private Warning checkSession(int hashcode)
+        public Warning checkSession(int hashcode)
         {
             // If there is a session associated with the hashcode, then check if it's expired and if so remove it.
             if (sessions.ContainsKey(hashcode))
@@ -190,6 +190,8 @@ namespace Eindopdracht
         private readonly DateTime expires;
         private readonly User user;
 
+        public static int SESSION_LENGTH_IN_HOURS = 3;
+
         public Session(string ip, User user)
         {
             this.ip = ip;
@@ -197,7 +199,7 @@ namespace Eindopdracht
             this.user = user;
 
             DateTime expires = DateTime.Now;
-            this.expires = expires.AddHours(1);
+            this.expires = expires.AddHours(SESSION_LENGTH_IN_HOURS);
         }
 
         public string IP
@@ -214,6 +216,11 @@ namespace Eindopdracht
         {
             get { return this.expires; }
         }
+
+        public User User
+        {
+            get { return this.user; }
+        }
     }
 
     public class User
@@ -221,14 +228,30 @@ namespace Eindopdracht
         private readonly int id;
         private readonly string username;
         private readonly string password;
-        private readonly string type;
+        private readonly USER_TYPE type;
+
+        public enum USER_TYPE
+        {
+            ADMIN, SUPPORTER 
+        }
 
         public User(int id, string username, string password, string type)
         {
             this.id = id;
             this.username = username;
             this.password = password;
-            this.type = type;
+
+            switch (type)
+            {
+                case "admin":
+                    this.type = USER_TYPE.ADMIN;
+                    break;
+                case "supporter":
+                    this.type = USER_TYPE.SUPPORTER;
+                    break;
+                default:
+                    throw new ArgumentException("The type of this user is undefined.");
+            }
         }
 
         public int ID
@@ -246,7 +269,7 @@ namespace Eindopdracht
             get { return this.password; }
         }
 
-        public string Type
+        public USER_TYPE Type
         {
             get { return this.type; }
         }
