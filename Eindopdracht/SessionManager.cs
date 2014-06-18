@@ -90,6 +90,7 @@ namespace Eindopdracht
                     loginAttemps[ip] = value++;
                 } else {
                     loginAttemps.Add(ip, 1);
+
                 }
             }
 
