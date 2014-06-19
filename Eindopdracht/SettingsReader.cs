@@ -25,11 +25,6 @@ namespace Eindopdracht
             ReadSettingsFile();
         }
 
-        public void Reload()
-        {
-            ReadSettingsFile();
-        }
-
         private void ReadSettingsFile()
         {
             if (!File.Exists("data\\Settings.xml")) // If there are no settings
@@ -74,7 +69,7 @@ namespace Eindopdracht
             }
         }
 
-        private void SaveNewSettings(int Port, int AdminPort, String Root, String[] DefaultPages, Boolean DirectoryBrowsing)
+        public void SaveNewSettings(int Port, int AdminPort, String Root, String[] DefaultPages, Boolean DirectoryBrowsing)
         {
             if (Port == 0 || AdminPort == 0 || String.IsNullOrWhiteSpace(Root))
                 return;
@@ -100,7 +95,7 @@ namespace Eindopdracht
 
             File.WriteAllText("data\\Settings.xml", xE.ToString());
 
-            Reload();
+            ReadSettingsFile();
         }
     }
 }
