@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -10,21 +11,21 @@ namespace Eindopdracht
 {
     public class Logger
     {
-        private LoggerQueue queue;
         private static int SIZE = 20;
-
+        private static String LogFilePath = "Data\\Log.txt";
         private static Logger instance;
-        private bool canReadQueue;
-        private volatile bool canProcessLogs;
+
+        private LoggerQueue queue;
+        private Semaphore producers, consumers;
 
         private Logger()
         {
             queue = new LoggerQueue(SIZE);
-            canReadQueue = false;
-            canProcessLogs = true;
+            producers = new Semaphore(SIZE, SIZE); // Many producers
+            consumers = new Semaphore(0, SIZE); // Only one consumer
         }
 
-        // There can be only one consumer (Singleton pattern).
+        // There can be only one.
         public static Logger getInstance()
         {
             if (instance == null)
@@ -38,48 +39,38 @@ namespace Eindopdracht
         {
             while (true)
             {
-                while (canProcessLogs)
-                    Console.WriteLine(String.Format("Popped: {0}", pop()));
+                String entry = pop();
 
-                Monitor.Wait(canProcessLogs);
+                // Write in a file
+                if (File.Exists(LogFilePath))
+                {
+                    String logContents;
+
+                    using (StreamReader sr = new StreamReader(LogFilePath))
+                        logContents = sr.ReadToEnd() + "\r\n" + entry;
+
+                    File.WriteAllText(LogFilePath, logContents);
+                }
+                else
+                    File.WriteAllText(LogFilePath, entry);
             }
-        }
-
-        public void testAddLogs()
-        {
-            while (true)
-            {
-                add(DateTime.Now.ToShortTimeString());
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-            }
-        }
-
-        public void interruptProcessing()
-        {
-            canProcessLogs = false;
-        }
-
-        public void resumeProcessing()
-        {
-            canProcessLogs = true;
-            Monitor.Pulse(canProcessLogs);
         }
 
         // This method puts the entry at the rear of the queue.
-        public bool add(String entry)
+        public bool put(String entry)
         {
+            if (String.IsNullOrWhiteSpace(entry))
+                return false;
+
             // This is used by multiple producers.
             lock (this)
             {
-                while (canReadQueue && queue.isFull())
-                    Monitor.Wait(this);
+                producers.WaitOne(); // If queue is full, producers are going to wait here
 
                 if (!queue.add(entry))
-                    return false;
+                    return false; // Something went wrong, invalid entry or queue full?
 
-                canReadQueue = true;
-                Monitor.Pulse(this);
-
+                consumers.Release();
                 return true;
             }
         }
@@ -87,19 +78,15 @@ namespace Eindopdracht
         // This method returns the front element and removes it afterwards.
         private String pop()
         {
-            // This is used by one consumer.
-            lock (this)
-            {
-                while (!canReadQueue && queue.isEmpty())
-                    Monitor.Wait(this);
+            consumers.WaitOne(); // If queue is empty, consumer is going to wait here
+            String entry = queue.pop();
 
-                String entry = queue.pop();
+            if (String.IsNullOrWhiteSpace(entry))
+                return "Error occured, queue empty";
 
-                canReadQueue = false;
-                Monitor.Pulse(this);
+            producers.Release();
 
-                return entry;
-            }
+            return entry;
         }
     }
 }

@@ -11,23 +11,19 @@ namespace Eindopdracht
     public class Program
     {
         private static SettingsReader Settings;
-        private static Connector connector;
-        private static Logger logger;
         public static void Main(String[] args)
         {
             Settings = new SettingsReader();
-            connector = Connector.getInstance();
-            logger = Logger.getInstance();
 
-            AbstractWebserver webserver = new UnsecuredWebserver(Settings, connector, logger);
+            AbstractWebserver webserver = new UnsecuredWebserver(Settings);
             AbstractWebserver adminserver = new SecuredWebserver(Settings);
 
             Thread tWeb = new Thread(m => webserver.StartListening());
             Thread tAdmin = new Thread(m => adminserver.StartListening());
-            
-            Thread tLogger = new Thread(logger.processLogs);
 
-            //new Thread(logger.testAddLogs).Start();
+            Thread tLogger = new Thread(Logger.getInstance().processLogs);
+
+            //new Thread(Logger.getInstance().testAddLogs).Start();
 
             tLogger.Start();
             tWeb.Start();

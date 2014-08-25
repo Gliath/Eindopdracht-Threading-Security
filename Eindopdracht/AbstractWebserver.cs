@@ -42,8 +42,6 @@ namespace Eindopdracht
 
             Byte[] bSendData = Encoding.ASCII.GetBytes(sBuffer);
             SendData(bSendData, ref sClient);
-
-            Console.WriteLine("Header Total Bytes: " + iLength.ToString());
         }
 
         protected void SendData(byte[] bData, ref Socket sClient)
@@ -52,10 +50,10 @@ namespace Eindopdracht
             try
             {
                 if (sClient.Connected)
+                {
                     if ((iBytes = sClient.Send(bData, bData.Length, 0)) == -1)
                         Console.WriteLine("Socket Error.\nData could not be send");
-                    else
-                        Console.WriteLine("Bytes sent: {0}", iBytes);
+                }
                 else
                     Console.WriteLine("Connection has dropped");
             }
@@ -90,7 +88,12 @@ namespace Eindopdracht
 
         protected String GetLocalPath(String requestedDirectory)
         {
-            return Settings.Root + (requestedDirectory.StartsWith("/") ? requestedDirectory.Substring(1) : requestedDirectory);
+            String path = Settings.Root + (requestedDirectory.StartsWith("/") ? requestedDirectory : requestedDirectory.Substring(1));
+
+            if (Path.GetFullPath(path).StartsWith(Path.GetFullPath(Settings.Root)))
+                return path;
+            else
+                return "ErrorPages\\403.html"; // Any attempt to access files outside the webroot are restricted.
         }
 
         protected String[] GetAllFilesFromDirectory(String requestedDirectory)

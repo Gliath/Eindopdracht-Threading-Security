@@ -16,7 +16,7 @@ namespace Eindopdracht
         public LoggerQueue(int size)
         {
             if(size < 1) {
-                throw new ArgumentException("The LoggerQueue must contain atleast contain one element.");
+                throw new ArgumentException("The LoggerQueue must be able to contain atleast one element.");
             }
 
             this.elements = new string[size];
@@ -29,6 +29,9 @@ namespace Eindopdracht
 
         public String pop()
         {
+            if (isEmpty())
+                return "";
+
             String entry = elements[getpos];
             getpos = (getpos + 1) % size;
             entries--;

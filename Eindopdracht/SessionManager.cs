@@ -38,20 +38,6 @@ namespace Eindopdracht
         }
 
         public int Login(string username, string password, string ip, out Warning warning) {
-            User user = null;
-
-            // Encrypt password with MD5 hashing
-            password = encryptPassword(password);
-            
-            string query = "SELECT * from users where username = '" + username + "' and password = '" + password + "'";
-            MySqlDataReader dr = connector.query(query);
-
-            // If the user has x number of login attemps, then block his IP for x number of hours.
-            if (loginAttemps.ContainsKey(ip) && (loginAttemps[ip] == NUMBER_OF_LOGIN_ATTEMPTS))
-            {
-                blockedIPs.Add(ip, new DateTime().AddHours(NUMBER_OF_HOURS_BLOCKED));
-                loginAttemps.Remove(ip);
-            }
 
             // If the IP is blocked and the x number of hours hasn't passed, then return warning BLOCKED_IP.
             if (blockedIPs.ContainsKey(ip))
@@ -67,6 +53,13 @@ namespace Eindopdracht
                     blockedIPs.Remove(ip);
                 }
             }
+
+            User user = null;
+
+            // Encrypt password with MD5 hashing
+            password = encryptPassword(password);
+            
+            MySqlDataReader dr = connector.selectUserQuery(username, password);
 
             // If the database returns a row then return warning NONE or else keep track of login attemps of this IP.
             if (dr.Read())
@@ -86,11 +79,16 @@ namespace Eindopdracht
             }
             else
             {
-                if(loginAttemps.ContainsKey(ip)) {
-                    int value = loginAttemps[ip];
-                    loginAttemps[ip] = value + 1;
-                } else {
+                if(loginAttemps.ContainsKey(ip))
+                    loginAttemps[ip] = loginAttemps[ip] + 1;
+                else
                     loginAttemps.Add(ip, 1);
+
+                // If the user has x number of login attemps, then block his IP for x number of hours.
+                if (loginAttemps[ip] == NUMBER_OF_LOGIN_ATTEMPTS)
+                {
+                    blockedIPs.Add(ip, new DateTime().AddHours(NUMBER_OF_HOURS_BLOCKED));
+                    loginAttemps.Remove(ip);
                 }
             }
 
@@ -109,11 +107,8 @@ namespace Eindopdracht
                 case Warning.SESSION_DOES_NOT_EXIST:
                     Console.WriteLine("Session does not exists.");
                     break;
-            }
-
-            if (checkSession(hashcode) == Warning.NONE)
-            {
-                return sessions[hashcode];
+                case Warning.NONE:
+                    return sessions[hashcode];
             }
 
             return null;
@@ -164,7 +159,7 @@ namespace Eindopdracht
         public void removeSession(int hashcode)
         {
             Session session = sessions[hashcode];
-            loggedInUsers.Remove(session.ID);
+            loggedInUsers.Remove(session.User.ID);
             sessions.Remove(hashcode);
         }
 
@@ -175,9 +170,7 @@ namespace Eindopdracht
             StringBuilder sb = new StringBuilder();
 
             for (int i = 0; i < data.Length; i++)
-            {
                 sb.Append(data[i].ToString("x2"));
-            }
 
             return sb.ToString();
         }
@@ -186,7 +179,6 @@ namespace Eindopdracht
     public class Session
     {
         private readonly string ip;
-        private readonly int id;
         private readonly DateTime expires;
         private readonly User user;
 
@@ -195,21 +187,14 @@ namespace Eindopdracht
         public Session(string ip, User user)
         {
             this.ip = ip;
-            this.id = user.ID;
             this.user = user;
-
-            DateTime expires = DateTime.Now;
-            this.expires = expires.AddHours(SESSION_LENGTH_IN_HOURS);
+            
+            this.expires = DateTime.Now.AddHours(SESSION_LENGTH_IN_HOURS);
         }
 
         public string IP
         {
             get { return this.ip; }
-        }
-
-        public int ID
-        {
-            get { return this.id; }
         }
 
         public DateTime Expires
@@ -220,58 +205,6 @@ namespace Eindopdracht
         public User User
         {
             get { return this.user; }
-        }
-    }
-
-    public class User
-    {
-        private readonly int id;
-        private readonly string username;
-        private readonly string password;
-        private readonly USER_TYPE type;
-
-        public enum USER_TYPE
-        {
-            ADMIN, SUPPORTER 
-        }
-
-        public User(int id, string username, string password, string type)
-        {
-            this.id = id;
-            this.username = username;
-            this.password = password;
-
-            switch (type)
-            {
-                case "admin":
-                    this.type = USER_TYPE.ADMIN;
-                    break;
-                case "supporter":
-                    this.type = USER_TYPE.SUPPORTER;
-                    break;
-                default:
-                    throw new ArgumentException("The type of this user is undefined.");
-            }
-        }
-
-        public int ID
-        {
-            get { return this.id; }
-        }
-
-        public string Username
-        {
-            get { return this.username; }
-        }
-
-        public string Password
-        {
-            get { return this.password; }
-        }
-
-        public USER_TYPE Type
-        {
-            get { return this.type; }
         }
     }
 }

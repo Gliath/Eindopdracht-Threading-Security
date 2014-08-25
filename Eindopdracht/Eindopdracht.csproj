@@ -60,6 +60,7 @@
     <Compile Include="UnsecuredWebserver.cs" />
     <Compile Include="AbstractWebserver.cs" />
     <Compile Include="SessionManager.cs" />
+    <Compile Include="UserHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

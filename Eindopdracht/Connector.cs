@@ -26,14 +26,13 @@ namespace Eindopdracht
         public static Connector getInstance()
         {
             if (instance == null)
-            {
                 instance = new Connector();
-            }
 
             return instance;
         }
 
-        public MySqlDataReader query(string query) {
+        public MySqlDataReader selectUserQuery(String username, String password)
+        {
             // TODO: Add MD5 and stored procedure
 
             /*MySqlCommand cmd = new MySqlCommand();
@@ -47,24 +46,61 @@ namespace Eindopdracht
             cmd.Parameters["password"].Direction = System.Data.ParameterDirection.Input;
             */
 
+            //MySqlCommand cmd = new MySqlCommand(query, connection);
+            MySqlCommand cmd = new MySqlCommand("SELECT * FROM users WHERE username = ?username AND password = ?password", connection);
+            cmd.Parameters.AddWithValue("?username", username);
+            cmd.Parameters.AddWithValue("?password", password);
+            return executeQuery(cmd);
+        }
+
+        public MySqlDataReader selectUserByIDQuery(String id)
+        {
+            MySqlCommand cmd = new MySqlCommand("SELECT * FROM users WHERE id = ?id", connection);
+            cmd.Parameters.AddWithValue("?id", id);
+            return executeQuery(cmd);
+        }
+
+        public MySqlDataReader selectUsersQuery()
+        {
+            MySqlCommand cmd = new MySqlCommand("SELECT * FROM users", connection);
+            return executeQuery(cmd);
+        }
+
+        public int createUserQuery(String username, String password, String type)
+        {
+            MySqlCommand cmd = connection.CreateCommand();
+            cmd.CommandText = "INSERT INTO users (username, password, type) VALUES (?username, ?password, ?type)";
+            cmd.Parameters.AddWithValue("?username", username);
+            cmd.Parameters.AddWithValue("?password", password);
+            cmd.Parameters.AddWithValue("?type", type);
+            return executeNonQuery(cmd);
+        }
+
+        public int editUserQuery(int id, String username, String type)
+        {
+            MySqlCommand cmd = connection.CreateCommand();
+            cmd.CommandText = "UPDATE users SET username = ?username, type = ?type WHERE ID = ?id";
+            cmd.Parameters.AddWithValue("?id", id);
+            cmd.Parameters.AddWithValue("?username", username);
+            cmd.Parameters.AddWithValue("?type", type);
+            return executeNonQuery(cmd);
+        }
+
+        public int deleteUserQuery(int id)
+        {
+            MySqlCommand cmd = connection.CreateCommand();
+            cmd.CommandText = "DELETE FROM users WHERE ID = ?id";
+            cmd.Parameters.AddWithValue("?id", id);
+            return executeNonQuery(cmd);
+        }
+
+        private MySqlDataReader executeQuery(MySqlCommand command)
+        {
             try
             {
-                //string query = "SELECT * from users where username = '" + username + "' and password = '" + password + "'";
-
                 if (this.OpenConnection() == true)
                 {
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    MySqlDataReader dr = cmd.ExecuteReader();
-
-                    /*if (dr.Read())
-                    {
-                        User user = new User(int.Parse(dr[0].ToString()), dr[1].ToString(), dr[2].ToString(), dr[3].ToString());
-                        this.CloseConnection();
-                        return user;
-                    }*/
-                    
-                    //this.CloseConnection();
-
+                    MySqlDataReader dr = command.ExecuteReader();
                     return dr;
                 }
             }
@@ -74,6 +110,26 @@ namespace Eindopdracht
             }
 
             return null;
+        }
+
+        private int executeNonQuery(MySqlCommand command)
+        {
+            try
+            {
+                if (this.OpenConnection() == true)
+                    return command.ExecuteNonQuery();
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+
+            return 0;
+        }
+
+        public bool IsOpen()
+        {
+            return connection.State == System.Data.ConnectionState.Open;
         }
 
         private bool OpenConnection()

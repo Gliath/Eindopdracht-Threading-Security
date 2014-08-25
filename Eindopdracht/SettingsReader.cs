@@ -29,7 +29,14 @@ namespace Eindopdracht
         {
             if (!File.Exists("data\\Settings.xml")) // If there are no settings
             { // Setup default settings
-                SaveNewSettings(8080, 8081, "C:\\Webserver\\Root", new String[] {"index.html", "index.htm"}, false); 
+                SaveNewSettings(8080, 8081, "C:\\Webserver\\Root", new String[] {"index.html", "index.htm"}, false);
+
+                Port = 8080;
+                AdminPort = 8081;
+                Root = "C:\\Webserver\\Root";
+                DefaultPages = new String[] { "index.html", "index.htm" };
+                DirectoryBrowsing = false;
+
                 return;
             }
 
@@ -71,7 +78,7 @@ namespace Eindopdracht
 
         public void SaveNewSettings(int Port, int AdminPort, String Root, String[] DefaultPages, Boolean DirectoryBrowsing)
         {
-            if (Port == 0 || AdminPort == 0 || String.IsNullOrWhiteSpace(Root))
+            if (Port <= 0 || AdminPort <= 0 || String.IsNullOrWhiteSpace(Root))
                 return;
 
             String sDefaultPages = "";

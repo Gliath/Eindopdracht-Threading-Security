@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
@@ -27,6 +28,7 @@ namespace Eindopdracht
         private Dictionary<string, int> activeIPs;
         private Connector connector;
         private SessionManager sessions;
+        private Logger logger;
 
         public SecuredWebserver(SettingsReader Settings)
             : base(Settings)
@@ -35,6 +37,7 @@ namespace Eindopdracht
             activeIPs = new Dictionary<string, int>();
             connector = Connector.getInstance();
             sessions = new SessionManager(connector);
+            logger = Logger.getInstance();
 
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), Settings.AdminPort);
             //certificate = new X509Certificate2(cerficicate_name, "ChrisLuke");
@@ -55,10 +58,8 @@ namespace Eindopdracht
                 */
 
                 // Debug, SSL te ontwijken
+                Console.WriteLine("");
                 Socket sClient = listener.AcceptSocket();
-                Console.WriteLine("Socket Type: " + sClient.SocketType);
-                if (sClient.Connected)
-                    Console.WriteLine("Client Connected\nClient IP: {0}", sClient.RemoteEndPoint);
 
                 /* SSL afhandeling
                 Console.WriteLine("Socket Type: " + client.Client.SocketType);
@@ -79,17 +80,18 @@ namespace Eindopdracht
                         Byte[] byteMessage = new Byte[1024];
                         int i = sClient.Receive(byteMessage, byteMessage.Length, 0);
                         String request = Encoding.ASCII.GetString(byteMessage).ToLower();
-                        Console.WriteLine(request.Replace("\0", ""));
 
                         int iFirstPos = request.IndexOf(' ');
                         int iLastPos = request.IndexOf(' ', iFirstPos + 1);
 
-                        if (iFirstPos > 0 && iLastPos > 0)
+                        if (iFirstPos > 0 && iLastPos > iFirstPos)
                         {
                             IPEndPoint IP = sClient.RemoteEndPoint as IPEndPoint;
                             String type = request.Substring(0, iFirstPos);
                             String url = request.Substring(iFirstPos + 1, iLastPos - (iFirstPos + 1)).Replace("\\", "/");
                             String html = request.Substring(iLastPos + 1, 8);
+
+                            Console.WriteLine("Request type: {0}\nRequest URL: {1}\nRequest HTML: {2}\n", type, url, html);
 
                             String referer = "";
                             String[] getParams = url.Split('?');
@@ -109,7 +111,6 @@ namespace Eindopdracht
                                     break;
                                 case "post":
                                     String postParams = request.Substring(request.LastIndexOf("\r\n") + 2).Replace("\0", "");
-                                    Console.WriteLine("Post parameters: {0}", postParams);
                                     byteFile = HandlePOSTRequest(url, IP.Address.ToString(), postParams.Split('&'), referer, out status);
                                     break;
                                 default:
@@ -123,6 +124,8 @@ namespace Eindopdracht
                                 //Socket socket = client.Client; Nodig voor SSL
                                 SendHeader(html, status, "text/html", byteFile.Length, ref sClient);
                                 SendData(byteFile, ref sClient);
+
+                                logger.put(String.Format("[{0}], {1}, ({2}): Requested URL: {3}", IP.Address.ToString(), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), "unknown ms", url));
                             }
                         }
                     }
@@ -209,12 +212,13 @@ namespace Eindopdracht
                     {
                         sessions.removeSession(getHashcodeOfActiveIP(ip));
                         activeIPs.Remove(ip);
+                        isLoggedIn = false;
                         Console.WriteLine("User has logged out");
                     }
                     else
                         Console.WriteLine("User is not even logged in");
 
-                    path = "index.html";
+                    path = "redirect.html";
                     break;
                 case "/log":
                     path = "log";
@@ -235,8 +239,12 @@ namespace Eindopdracht
                     return HandleError(status = "404");
             }
 
-            if (!url.Equals("/") && !isLoggedIn) // If the user is not logged in
-                return HandleError(status = "403");
+           
+            if (!url.Equals("/") && !url.Equals("/logout") && !isLoggedIn)
+                return HandleError(status = "403"); // If the user is not logged in
+
+            if (!url.Equals("/") && !url.Equals("/log") && isLoggedIn && !sessions.getSession(activeIPs[ip]).User.Type.Equals(User.USER_TYPE.ADMIN)) 
+                return HandleError(status = "403"); // If the user does not have the appropriate access level
 
             if (((url.Equals("/edit") || url.Equals("/delete")) && getParams.Length != 2 && !getParams[1].ToLower().StartsWith("id=")))
                 return HandleError(status = "404");
@@ -249,11 +257,21 @@ namespace Eindopdracht
                 String htmlPage = "";
                 if (path.Equals("log"))
                 {
-                    //Get log, print it all (seperate lines)
-                }
+                    String logLines;
+                    using (StreamReader sr = new StreamReader("Data\\Log.txt"))
+                        logLines = sr.ReadToEnd();
 
-                using (StreamReader sr = new StreamReader(path))
-                    htmlPage = sr.ReadToEnd();
+                    using (StreamReader sr = new StreamReader("SecuredPages\\log_template.html"))
+                        htmlPage = sr.ReadToEnd();
+
+                    logLines = logLines.Replace("\r\n", "\r\n<br />");
+                    htmlPage = htmlPage.Replace("{LogLines}", logLines);
+                }
+                else
+                {
+                    using (StreamReader sr = new StreamReader(path))
+                        htmlPage = sr.ReadToEnd();
+                }
 
                 // If controlpage, get old settings
                 if (path.Contains("cp_page.html"))
@@ -273,7 +291,7 @@ namespace Eindopdracht
                 else if (url.Equals("/users")) // list of users
                 {
                     List<User> users = new List<User>();
-                    MySqlDataReader dr = connector.query("SELECT * FROM users");
+                    MySqlDataReader dr = connector.selectUsersQuery();
 
                     if (dr.HasRows)
                     {
@@ -286,7 +304,7 @@ namespace Eindopdracht
 
                         String listUsers = "";
                         foreach (User user in users)
-                            listUsers += listItem.Replace("{username}", user.Username).Replace("{isAdmin}", user.Type.Equals("admin") ? "checked" : "").Replace("{id}", user.ID.ToString());
+                            listUsers += listItem.Replace("{username}", user.Username).Replace("{isAdmin}", user.Type.Equals(User.USER_TYPE.ADMIN) ? "checked" : "").Replace("{id}", user.ID.ToString());
 
                         htmlPage = htmlPage.Replace("{ListUsers}", listUsers);
                     }
@@ -296,18 +314,18 @@ namespace Eindopdracht
                             htmlPage = sr.ReadToEnd();
 
                         // If it fails to load the users, redirect client to users overview
-                        htmlPage.Replace("{url}", "/");
+                        htmlPage = htmlPage.Replace("{url}", "/");
                     }
 
                     connector.CloseConnection();
                 }
-                else if (((url.StartsWith("/edit") || url.StartsWith("/delete")) && url.Contains('?')))
+                else if (((url.StartsWith("/edit") || url.StartsWith("/delete")) && getParams.Length > 1))
                 {
-                    MySqlDataReader dr = connector.query("SELECT * from users where id = '" + getParams[1].Substring(3) + "'");
+                    MySqlDataReader dr = connector.selectUserByIDQuery(getParams[1].Substring(3));
                     if (dr.Read())
                     {
                         htmlPage = htmlPage.Replace("{user}", dr[1].ToString()).Replace("{id}", dr[0].ToString());
-                        htmlPage = htmlPage.Replace("{oldUsername}", dr[1].ToString()).Replace("{oldIsAdmin", dr[3].ToString().Equals("admin") ? "checked" : "");
+                        htmlPage = htmlPage.Replace("{oldUsername}", dr[1].ToString()).Replace("{oldIsAdmin}", dr[3].Equals("admin") ? "checked" : "");
                         connector.CloseConnection();
                     }
                     else
@@ -316,9 +334,11 @@ namespace Eindopdracht
                             htmlPage = sr.ReadToEnd();
 
                         // If it fails to load the user, redirect client to users overview
-                        htmlPage.Replace("{url}", "/users");
+                        htmlPage = htmlPage.Replace("{url}", "/users");
                     }
                 }
+                else if (url.Equals("/logout"))
+                    htmlPage = htmlPage.Replace("{url}", "/");
 
                 // Replace with something better
                 htmlPage = htmlPage.Replace("{Message}", message);
@@ -329,6 +349,9 @@ namespace Eindopdracht
             {
                 Console.WriteLine("File could not be read. Message:");
                 Console.WriteLine(e.Message);
+
+                if (connector.IsOpen())
+                    connector.CloseConnection();
             }
 
             return HandleError(status = "404");
@@ -343,6 +366,15 @@ namespace Eindopdracht
             String message = "";
             String path = "";
             String page = "";
+
+            int id = -1;
+            String username = "", password = "";
+            Boolean isAdmin = false;
+            String[] postParam = postParams[0].Split('=');
+
+            if (isLoggedIn && !sessions.getSession(activeIPs[ip]).User.Type.Equals(User.USER_TYPE.ADMIN)) // Any unauthorized access is not permitted
+                return HandleError(status = "403");
+
             switch (url)
             {
                 case "/":
@@ -352,11 +384,10 @@ namespace Eindopdracht
                         for (int i = 0; i < postParams.Length - 1; i++) // Don't need the hidden input
                             newSettings[i] = Uri.UnescapeDataString(postParams[i].Split('=')[1]);
 
-                        Settings.SaveNewSettings(int.Parse(newSettings[0]), int.Parse(newSettings[1]), newSettings[2], newSettings[3].Split(';'), newSettings[4].Equals("on"));
+                        Settings.SaveNewSettings(int.Parse(newSettings[0]), int.Parse(newSettings[1]), newSettings[2], newSettings[3].Split(';'), newSettings[4] != null);
+                        // Restart servers?
+
                         message = "Successfully saved settings.";
-
-                        ;
-
                         path = "SecuredPages\\cp_page.html";
                     }
                     else // index submit
@@ -370,22 +401,19 @@ namespace Eindopdracht
                         SessionManager.Warning warning;
                         int hashcode = HandleLoginAttempt(postParams, ip, out warning);
 
+                        path = "SecuredPages\\index.html";
                         switch (warning)
                         {
                             case SessionManager.Warning.WRONG_COMBINATION:
-                                path = "SecuredPages\\index.html";
                                 Console.WriteLine(message = "The user has entered a wrong combination.");
                                 break;
                             case SessionManager.Warning.USER_ALREADY_LOGGED_IN:
-                                path = "SecuredPages\\cp_page.html";
                                 Console.WriteLine(message = "The user is already logged in.");
                                 break;
                             case SessionManager.Warning.SESSION_EXPIRED:
-                                path = "SecuredPages\\index.html";
                                 Console.WriteLine(message = "The session has expired.");
                                 break;
                             case SessionManager.Warning.BLOCKED_IP:
-                                path = "SecuredPages\\index.html";
                                 Console.WriteLine(message = "{0} is blocked.", ip);
                                 break;
                             case SessionManager.Warning.NONE:
@@ -398,15 +426,80 @@ namespace Eindopdracht
                     break;
 
                 case "/create":
+                    for (int i = 0; i < postParams.Length; i++)
+                    {
+                        postParam = postParams[i].Split('=');
+                        switch (postParam[0])
+                        {
+                            case "username":
+                                username = postParam[1];
+                                break;
+                            case "password":
+                                password = postParam[1];
+                                break;
+                            case "is_admin": // Only appears if checked
+                                isAdmin = true;
+                                break;
+                            default:
+                                Console.WriteLine("Unknown post parameter: {0} = {1}", postParam[0], postParam[1]);
+                                break;
+                        }
+                    }
 
+                    MD5 md5 = MD5.Create();
+                    byte[] data = md5.ComputeHash(Encoding.UTF8.GetBytes(password));
+                    StringBuilder sb = new StringBuilder();
+
+                    for (int i = 0; i < data.Length; i++)
+                        sb.Append(data[i].ToString("x2"));
+
+                    UserHandler.createUser(username, sb.ToString(), isAdmin ? "admin" : "supporter");
+                    message = "/users";
+                    path = "SecuredPages\\redirect.html";
                     break;
 
                 case "/edit":
+                    for (int i = 0; i < postParams.Length; i++)
+                    {
+                        postParam = postParams[i].Split('=');
+                        switch (postParam[0])
+                        {
+                            case "id":
+                                id = int.Parse(postParam[1]);
+                                break;
+                            case "username":
+                                username = postParam[1];
+                                break;
+                            case "is_admin": // Only appears if checked
+                                isAdmin = true;
+                                break;
+                            default:
+                                Console.WriteLine("Unknown post parameter: {0} = {1}", postParam[0], postParam[1]);
+                                break;
+                        }
+                    }
 
+                    UserHandler.editUser(id, username, isAdmin ? "admin" : "supporter");
+                    message = "/users";
+                    path = "SecuredPages\\redirect.html";
                     break;
 
                 case "/delete":
+                    for (int i = 0; i < postParams.Length; i++)
+                    {
+                        postParam = postParams[i].Split('=');
+                        switch (postParam[0])
+                        {
+                            case "id":
+                                UserHandler.deleteUser(int.Parse(postParam[1]));
+                                break;
+                            default:
+                                break;
+                        }
+                    }
 
+                    message = "/users";
+                    path = "SecuredPages\\redirect.html";
                     break;
             }
 
@@ -415,7 +508,7 @@ namespace Eindopdracht
                 using (StreamReader sr = new StreamReader(path))
                     page = sr.ReadToEnd();
 
-                if(path.Contains("cp_page"))
+                if (path.Contains("cp_page"))
                 {
                     String oldDefaultPages = "";
                     foreach (String defaultPage in Settings.DefaultPages)
@@ -430,6 +523,8 @@ namespace Eindopdracht
                                 .Replace("{oldDirectoryBrowsing}", Settings.DirectoryBrowsing ? "checked" : "");
                 }
 
+                if (path.Contains("redirect"))
+                    page = page.Replace("{url}", message);
 
                 return Encoding.ASCII.GetBytes(page.Replace("{Message}", message));
             }
@@ -444,7 +539,7 @@ namespace Eindopdracht
 
         private Byte[] HandleError(String errorCode)
         {
-            if (!errorCode.Equals("400") || !errorCode.Equals("403") || !errorCode.Equals("404"))
+            if (!errorCode.Equals("400") && !errorCode.Equals("403") && !errorCode.Equals("404"))
             {
                 Console.WriteLine("Unknown error occured. Error code: {0}", errorCode);
                 errorCode = "404";
